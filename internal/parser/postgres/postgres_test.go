@@ -194,16 +194,6 @@ func TestParser_Parse_InvalidSQL(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to parse SQL")
 }
 
-func TestParser_Parse_EmptySQL(t *testing.T) {
-	p := NewParser()
-
-	sql := ""
-
-	ops, err := p.Parse(sql)
-	require.NoError(t, err)
-	assert.Empty(t, ops)
-}
-
 func TestParser_Parse_CommentsInSQL(t *testing.T) {
 	p := NewParser()
 

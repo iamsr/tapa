@@ -18,11 +18,6 @@ func NewParser() *Parser {
 
 // Parse analyzes SQL and returns detected operations
 func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
-	// Handle empty SQL
-	if sql == "" {
-		return []*models.Operation{}, nil
-	}
-
 	result, err := pg_query.Parse(sql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SQL: %w", err)

@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/yourusername/dma/internal/parser/mysql"
 	"github.com/yourusername/dma/internal/parser/postgres"
 	"github.com/yourusername/dma/pkg/models"
 )
@@ -22,8 +23,7 @@ func GetParser(dbType string) (Parser, error) {
 	case "postgresql":
 		return postgres.NewParser(), nil
 	case "mysql":
-		// TODO: Implement MySQL parser in Phase 3
-		return nil, fmt.Errorf("MySQL parser not yet implemented")
+		return mysql.NewParser(), nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}

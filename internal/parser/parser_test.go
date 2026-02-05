@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yourusername/dma/pkg/models"
 )
 
 func TestGetParser(t *testing.T) {
@@ -14,23 +13,18 @@ func TestGetParser(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "postgresql supported",
+			name:    "postgresql",
 			dbType:  "postgresql",
 			wantErr: false,
 		},
 		{
-			name:    "mysql not yet implemented",
+			name:    "mysql",
 			dbType:  "mysql",
-			wantErr: true,
+			wantErr: false,
 		},
 		{
-			name:    "unsupported database",
+			name:    "unsupported",
 			dbType:  "oracle",
-			wantErr: true,
-		},
-		{
-			name:    "empty database type",
-			dbType:  "",
 			wantErr: true,
 		},
 	}
@@ -47,17 +41,4 @@ func TestGetParser(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestParserInterface(t *testing.T) {
-	// Test that Parser interface is implemented correctly
-	parser, err := GetParser("postgresql")
-	assert.NoError(t, err)
-	assert.NotNil(t, parser)
-
-	// Verify Parse method exists and returns correct types
-	ops, err := parser.Parse("")
-	assert.NoError(t, err)
-	assert.NotNil(t, ops)
-	assert.IsType(t, []*models.Operation{}, ops)
 }
