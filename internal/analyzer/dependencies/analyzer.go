@@ -79,19 +79,31 @@ func (a *postgresDependencyAnalyzer) FindDependencies(ctx context.Context, op *m
 }
 
 // extractColumnName tries to extract column name from DROP COLUMN or ALTER COLUMN SQL
+// Handles both quoted ("column_name") and unquoted (column_name) identifiers
+// Returns empty string if pattern not matched
 func extractColumnName(sql string) string {
-	// Match: DROP COLUMN column_name
-	re := regexp.MustCompile(`DROP\s+COLUMN\s+(\w+)`)
+	// Match DROP COLUMN with case-insensitive flag and support for quoted identifiers
+	re := regexp.MustCompile(`(?i)DROP\s+COLUMN\s+(?:"([^"]+)|(\w+))`)
 	matches := re.FindStringSubmatch(sql)
 	if len(matches) > 1 {
-		return matches[1]
+		if matches[1] != "" {
+			return matches[1] // quoted identifier
+		}
+		if matches[2] != "" {
+			return matches[2] // unquoted identifier
+		}
 	}
 
-	// Match: ALTER COLUMN column_name
-	re = regexp.MustCompile(`ALTER\s+COLUMN\s+(\w+)`)
+	// Match ALTER COLUMN with case-insensitive flag and support for quoted identifiers
+	re = regexp.MustCompile(`(?i)ALTER\s+COLUMN\s+(?:"([^"]+)|(\w+))`)
 	matches = re.FindStringSubmatch(sql)
 	if len(matches) > 1 {
-		return matches[1]
+		if matches[1] != "" {
+			return matches[1] // quoted identifier
+		}
+		if matches[2] != "" {
+			return matches[2] // unquoted identifier
+		}
 	}
 
 	return ""

@@ -2,6 +2,7 @@ package dependencies
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -154,10 +155,29 @@ func TestPostgresDependencyAnalyzer_FindDependencies_NonBreakingOperation(t *tes
 	assert.Len(t, deps, 0)
 }
 
+func TestPostgresDependencyAnalyzer_FindDependencies_GetTableStatsError(t *testing.T) {
+	mockIntr := &mockIntrospector{
+		tableStatsError: fmt.Errorf("connection timeout"),
+	}
+
+	analyzer := newPostgresDependencyAnalyzer(mockIntr)
+
+	op := &models.Operation{
+		Type:      models.OperationTypeDropTable,
+		TableName: "users",
+		SQL:       "DROP TABLE users",
+	}
+
+	deps, err := analyzer.FindDependencies(context.Background(), op)
+	require.Error(t, err)
+	assert.Nil(t, deps)
+	assert.Contains(t, err.Error(), "failed to find index dependencies")
+}
+
 // mockIntrospector implements db.Introspector for testing
 type mockIntrospector struct {
-	tableStats *db.TableStats
-	tableError error
+	tableStats      *db.TableStats
+	tableStatsError error
 }
 
 func (m *mockIntrospector) Connect(ctx context.Context) error {
@@ -173,11 +193,19 @@ func (m *mockIntrospector) TableExists(ctx context.Context, name string) (bool, 
 }
 
 func (m *mockIntrospector) GetTableStats(ctx context.Context, name string) (*db.TableStats, error) {
-	if m.tableError != nil {
-		return nil, m.tableError
+	if m.tableStatsError != nil {
+		return nil, m.tableStatsError
 	}
 	if m.tableStats != nil {
 		return m.tableStats, nil
 	}
-	return &db.TableStats{TableName: name}, nil
+	return &db.TableStats{
+		TableName:      name,
+		RowCount:       1000,
+		TableSizeBytes: 1024 * 1024,
+		Indexes: []db.IndexInfo{
+			{IndexName: "idx_users_email", IndexType: "btree"},
+			{IndexName: "idx_users_name", IndexType: "btree"},
+		},
+	}, nil
 }
