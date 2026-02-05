@@ -51,7 +51,8 @@ type Operation struct {
 	RiskScore            int
 	BackwardCompatible   bool
 	Recommendations      []string
-	Dependencies         []Dependency `json:"dependencies,omitempty"`
+	Dependencies         []Dependency   `json:"dependencies,omitempty"`
+	TimeBreakdown        *TimeBreakdown `json:"time_breakdown,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
