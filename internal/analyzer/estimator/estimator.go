@@ -34,6 +34,14 @@ type postgresTimeEstimator struct {
 }
 
 func newPostgresTimeEstimator(introspector db.Introspector, throughputMBps int, rewriteFactor float64) *postgresTimeEstimator {
+	// Validate and set defaults for invalid inputs
+	if throughputMBps <= 0 {
+		throughputMBps = 100 // reasonable default: 100 MB/s
+	}
+	if rewriteFactor <= 0 {
+		rewriteFactor = 2.0 // reasonable default
+	}
+
 	return &postgresTimeEstimator{
 		introspector:   introspector,
 		throughputMBps: throughputMBps,
