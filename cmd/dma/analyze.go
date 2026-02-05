@@ -1,47 +1,52 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yourusername/dma/internal/config"
+	"github.com/yourusername/dma/internal/db"
+	"github.com/yourusername/dma/internal/introspector"
 	"github.com/yourusername/dma/internal/output"
 	"github.com/yourusername/dma/internal/parser"
 	"github.com/yourusername/dma/pkg/models"
 )
 
 type analyzeOptions struct {
-	dbURL      string
-	dbType     string
-	format     string
-	configFile string
+	dbURL           string
+	dbType          string
+	format          string
+	dryRun          bool
+	failOnRiskLevel string
 }
 
 func newAnalyzeCommand() *cobra.Command {
 	opts := &analyzeOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "analyze [migration-file]",
-		Short: "Analyze a database migration file",
+		Use:   "analyze [migration-file-or-directory]",
+		Short: "Analyze migration files for production impact",
 		Long: `Analyze SQL migration files to predict production impact including:
-- DDL operations detected
-- Lock types and potential durations
-- Risk assessment
-- Backward compatibility
-
-The analyzer parses the SQL file and provides detailed insights without
-requiring a database connection (though connecting provides enhanced analysis).`,
-		Args: cobra.MinimumNArgs(1),
+- Lock types and durations
+- Table rewrite requirements
+- Index build times
+- Backward compatibility issues
+- Risk scoring and recommendations`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAnalyze(args[0], opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.dbURL, "db-url", "", "database connection URL")
-	cmd.Flags().StringVar(&opts.dbType, "db-type", "", "database type (postgresql, mysql)")
+	cmd.Flags().StringVar(&opts.dbURL, "db", "", "database connection URL")
+	cmd.Flags().StringVar(&opts.dbType, "db-type", "", "database type (postgresql, mysql) - auto-detected from URL if not specified")
 	cmd.Flags().StringVar(&opts.format, "format", "table", "output format (table, json, yaml)")
+	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection")
+	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
 
 	return cmd
 }
@@ -63,6 +68,9 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 	if opts.format != "" {
 		cfg.Output.Format = opts.format
 	}
+	if opts.failOnRiskLevel != "" {
+		cfg.Analysis.FailOnRiskLevel = opts.failOnRiskLevel
+	}
 
 	// Auto-detect database type from URL if not specified
 	if cfg.Database.Type == "" && cfg.Database.URL != "" {
@@ -74,9 +82,9 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		cfg.Database.Type = "postgresql"
 	}
 
-	// Validate file exists
-	if _, err := os.Stat(filePath); err != nil {
-		return fmt.Errorf("migration file not found: %w", err)
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	// Get parser
@@ -85,22 +93,56 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		return fmt.Errorf("failed to get parser: %w", err)
 	}
 
-	// Parse migration file
-	migration, err := sqlParser.ParseFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to parse migration: %w", err)
+	// Get introspector (optional in dry-run mode)
+	var intr db.Introspector
+	if !opts.dryRun && cfg.Database.URL != "" {
+		intr, err = introspector.GetIntrospector(cfg.Database.Type, cfg.Database.URL)
+		if err != nil {
+			// Log warning but continue
+			fmt.Fprintf(os.Stderr, "Warning: failed to get introspector: %v\n", err)
+		}
+		if intr != nil {
+			ctx := context.Background()
+			if err := intr.Connect(ctx); err != nil {
+				// Log warning but continue
+				fmt.Fprintf(os.Stderr, "Warning: failed to connect to database: %v\n", err)
+			} else {
+				defer intr.Close()
+			}
+		}
 	}
 
-	// Create analysis result
+	// Find migration files
+	files, err := findMigrationFiles(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to find migration files: %w", err)
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no migration files found in: %s", filePath)
+	}
+
+	// Parse migrations
 	result := &models.AnalysisResult{
-		Migrations:      []*models.Migration{migration},
+		Migrations:      make([]*models.Migration, 0),
 		DatabaseType:    cfg.Database.Type,
 		FailOnRiskLevel: models.RiskLevel(cfg.Analysis.FailOnRiskLevel),
 		Errors:          []error{},
 	}
 
-	// TODO: Add database introspection in future tasks
-	// For now, we're in parse-only mode
+	for _, file := range files {
+		migration, err := sqlParser.ParseFile(file)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to parse %s: %w", file, err))
+			continue
+		}
+		result.Migrations = append(result.Migrations, migration)
+	}
+
+	// If we have errors and no successful migrations, return error
+	if len(result.Errors) > 0 && len(result.Migrations) == 0 {
+		return fmt.Errorf("failed to parse migrations: %v", result.Errors[0])
+	}
 
 	// Output results
 	if err := output.Format(os.Stdout, result, cfg.Output.Format); err != nil {
@@ -128,4 +170,31 @@ func detectDBType(url string) string {
 	}
 
 	return ""
+}
+
+// findMigrationFiles finds migration files from a given path (file or directory)
+func findMigrationFiles(path string) ([]string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !info.IsDir() {
+		// Single file
+		return []string{path}, nil
+	}
+
+	// Directory - find all .sql files
+	var files []string
+	err = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(strings.ToLower(p), ".sql") {
+			files = append(files, p)
+		}
+		return nil
+	})
+
+	return files, err
 }

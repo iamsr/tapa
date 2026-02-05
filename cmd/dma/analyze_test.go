@@ -12,7 +12,7 @@ import (
 func TestAnalyzeCommand_Structure(t *testing.T) {
 	cmd := newAnalyzeCommand()
 
-	assert.Equal(t, "analyze [migration-file]", cmd.Use)
+	assert.Equal(t, "analyze [migration-file-or-directory]", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotNil(t, cmd.RunE)
 }
@@ -20,9 +20,11 @@ func TestAnalyzeCommand_Structure(t *testing.T) {
 func TestAnalyzeCommand_Flags(t *testing.T) {
 	cmd := newAnalyzeCommand()
 
-	assert.NotNil(t, cmd.Flags().Lookup("db-url"))
+	assert.NotNil(t, cmd.Flags().Lookup("db"))
 	assert.NotNil(t, cmd.Flags().Lookup("db-type"))
 	assert.NotNil(t, cmd.Flags().Lookup("format"))
+	assert.NotNil(t, cmd.Flags().Lookup("dry-run"))
+	assert.NotNil(t, cmd.Flags().Lookup("fail-on-risk-level"))
 }
 
 func TestAnalyzeCommand_MissingArgument(t *testing.T) {
@@ -31,7 +33,7 @@ func TestAnalyzeCommand_MissingArgument(t *testing.T) {
 
 	err := cmd.Execute()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "requires at least 1 arg")
+	assert.Contains(t, err.Error(), "accepts 1 arg")
 }
 
 func TestAnalyzeCommand_NonExistentFile(t *testing.T) {
@@ -101,5 +103,20 @@ func TestAnalyzeCommand_YAMLFormat(t *testing.T) {
 	cmd.SetArgs([]string{sqlFile, "--db-type", "postgresql", "--format", "yaml"})
 
 	err = cmd.Execute()
+	assert.NoError(t, err)
+}
+
+func TestAnalyzeCommand_DryRun(t *testing.T) {
+	// Create temp SQL file
+	tmpDir := t.TempDir()
+	sqlFile := filepath.Join(tmpDir, "001_test.sql")
+	err := os.WriteFile(sqlFile, []byte("ALTER TABLE users ADD COLUMN email VARCHAR(255);"), 0644)
+	require.NoError(t, err)
+
+	cmd := newAnalyzeCommand()
+	cmd.SetArgs([]string{sqlFile, "--dry-run"})
+
+	err = cmd.Execute()
+	// Should not fail in dry-run mode without database
 	assert.NoError(t, err)
 }
