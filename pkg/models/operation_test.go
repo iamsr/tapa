@@ -58,3 +58,27 @@ func TestOperation_EstimatedDuration(t *testing.T) {
 	duration := op.EstimatedDuration()
 	assert.Equal(t, 125*time.Second+500*time.Millisecond, duration)
 }
+
+func TestOperation_HasBreakingDependencies(t *testing.T) {
+	op := &Operation{
+		Type:      OperationTypeDropColumn,
+		TableName: "users",
+		Dependencies: []Dependency{
+			{
+				Type:        DependencyTypeIndex,
+				Name:        "idx_users_email",
+				ImpactLevel: ImpactBreaks,
+			},
+		},
+	}
+
+	hasBreaking := false
+	for _, dep := range op.Dependencies {
+		if dep.IsBreaking() {
+			hasBreaking = true
+			break
+		}
+	}
+
+	assert.True(t, hasBreaking)
+}

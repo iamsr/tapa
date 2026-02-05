@@ -51,6 +51,7 @@ type Operation struct {
 	RiskScore            int
 	BackwardCompatible   bool
 	Recommendations      []string
+	Dependencies         []Dependency `json:"dependencies,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
