@@ -6,6 +6,9 @@ import (
 )
 
 func main() {
-	fmt.Println("Database Migration Analyzer v0.1.0")
-	os.Exit(0)
+	cmd := newRootCommand()
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
