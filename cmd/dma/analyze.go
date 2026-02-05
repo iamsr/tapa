@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/yourusername/dma/internal/analyzer"
 	"github.com/yourusername/dma/internal/config"
 	"github.com/yourusername/dma/internal/db"
 	"github.com/yourusername/dma/internal/introspector"
@@ -130,12 +131,32 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		Errors:          []error{},
 	}
 
+	// Get analyzer for risk assessment
+	// Even in dry-run mode, we can provide basic lock analysis with conservative estimates
+	anlzr, err := analyzer.GetAnalyzer(cfg.Database.Type, intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to get analyzer: %v\n", err)
+		anlzr = nil
+	}
+
+	ctx := context.Background()
 	for _, file := range files {
 		migration, err := sqlParser.ParseFile(file)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("failed to parse %s: %w", file, err))
 			continue
 		}
+
+		// Analyze each operation for production impact
+		if anlzr != nil {
+			for _, op := range migration.Operations {
+				if err := anlzr.Analyze(ctx, op); err != nil {
+					// Log warning but continue
+					fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+				}
+			}
+		}
+
 		result.Migrations = append(result.Migrations, migration)
 	}
 
