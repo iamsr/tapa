@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
-	"github.com/yourusername/dma/pkg/models"
 )
 
 // Config represents the application configuration
@@ -17,40 +16,38 @@ type Config struct {
 
 // DatabaseConfig holds database connection settings
 type DatabaseConfig struct {
-	Type     string `mapstructure:"type"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Name     string `mapstructure:"name"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
+	URL  string `mapstructure:"url"`
+	Type string `mapstructure:"type"`
 }
 
 // AnalysisConfig holds analysis parameters
 type AnalysisConfig struct {
 	DiskThroughputMBps int     `mapstructure:"disk_throughput_mbps"`
 	RewriteFactor      float64 `mapstructure:"rewrite_factor"`
+	FailOnRiskLevel    string  `mapstructure:"fail_on_risk_level"`
 }
 
 // OutputConfig holds output formatting settings
 type OutputConfig struct {
-	Format          string           `mapstructure:"format"`
-	FailOnRiskLevel models.RiskLevel `mapstructure:"fail_on_risk_level"`
+	Format  string `mapstructure:"format"`
+	Verbose bool   `mapstructure:"verbose"`
 }
 
 // DefaultConfig returns a Config with sensible defaults
 func DefaultConfig() *Config {
 	return &Config{
 		Database: DatabaseConfig{
-			Type: "postgresql",
-			Host: "localhost",
-			Port: 5432,
+			Type: "",
+			URL:  "",
 		},
 		Analysis: AnalysisConfig{
 			DiskThroughputMBps: 200, // Conservative SSD throughput
 			RewriteFactor:      2.0, // Conservative rewrite estimate
+			FailOnRiskLevel:    "",
 		},
 		Output: OutputConfig{
-			Format: "table",
+			Format:  "table",
+			Verbose: false,
 		},
 	}
 }
@@ -104,16 +101,11 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate risk level if provided
-	if c.Output.FailOnRiskLevel != "" {
-		validRiskLevels := []models.RiskLevel{
-			models.RiskLevelLow,
-			models.RiskLevelMedium,
-			models.RiskLevelHigh,
-			models.RiskLevelCritical,
-		}
-		if !containsRiskLevel(validRiskLevels, c.Output.FailOnRiskLevel) {
-			return fmt.Errorf("unsupported risk level '%s', must be one of: LOW, MEDIUM, HIGH, CRITICAL",
-				c.Output.FailOnRiskLevel)
+	if c.Analysis.FailOnRiskLevel != "" {
+		validRiskLevels := []string{"low", "medium", "high", "critical"}
+		if !contains(validRiskLevels, c.Analysis.FailOnRiskLevel) {
+			return fmt.Errorf("unsupported risk level '%s', must be one of: low, medium, high, critical",
+				c.Analysis.FailOnRiskLevel)
 		}
 	}
 
@@ -131,16 +123,6 @@ func (c *Config) Validate() error {
 
 // contains checks if a slice contains a string
 func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-// containsRiskLevel checks if a slice contains a risk level
-func containsRiskLevel(slice []models.RiskLevel, item models.RiskLevel) bool {
 	for _, s := range slice {
 		if s == item {
 			return true
