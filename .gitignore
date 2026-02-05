@@ -2,6 +2,7 @@
 .worktrees/
 
 # Go build artifacts
+bin/
 *.exe
 *.exe~
 *.dll
@@ -13,9 +14,6 @@
 # Go coverage files
 coverage.txt
 coverage.html
-
-# Go module cache
-go.sum
 
 # IDE and editor files
 .vscode/
