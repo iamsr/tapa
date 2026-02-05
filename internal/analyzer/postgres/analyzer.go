@@ -6,6 +6,9 @@ import (
 	"math"
 	"strings"
 
+	"github.com/yourusername/dma/internal/analyzer/alternatives"
+	"github.com/yourusername/dma/internal/analyzer/dependencies"
+	"github.com/yourusername/dma/internal/analyzer/estimator"
 	"github.com/yourusername/dma/internal/db"
 	"github.com/yourusername/dma/pkg/models"
 )
@@ -15,15 +18,27 @@ type Analyzer struct {
 	introspector       db.Introspector
 	diskThroughputMBps int
 	rewriteFactor      float64
+
+	// Phase 2 modules
+	dependencyAnalyzer   dependencies.DependencyAnalyzer
+	timeEstimator        estimator.TimeEstimator
+	alternativeGenerator alternatives.AlternativeGenerator
 }
 
 // NewAnalyzer creates a new PostgreSQL analyzer
 func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFactor float64) *Analyzer {
-	return &Analyzer{
+	analyzer := &Analyzer{
 		introspector:       introspector,
 		diskThroughputMBps: diskThroughputMBps,
 		rewriteFactor:      rewriteFactor,
 	}
+
+	// Initialize Phase 2 modules (errors are ignored for optional features)
+	analyzer.dependencyAnalyzer, _ = dependencies.GetDependencyAnalyzer("postgresql", introspector)
+	analyzer.timeEstimator, _ = estimator.GetTimeEstimator("postgresql", introspector, diskThroughputMBps, rewriteFactor)
+	analyzer.alternativeGenerator, _ = alternatives.GetAlternativeGenerator("postgresql")
+
+	return analyzer
 }
 
 // Analyze enriches an operation with lock detection, risk scoring, and recommendations
@@ -326,4 +341,60 @@ func (a *Analyzer) generateRecommendations(op *models.Operation, stats *db.Table
 		op.Recommendations = append(op.Recommendations,
 			fmt.Sprintf("Estimated duration: %.1f minutes - plan for extended lock time", op.EstimatedTimeSeconds/60.0))
 	}
+}
+
+// AnalysisOptions controls which Phase 2 features are enabled
+type AnalysisOptions struct {
+	IncludeDependencies  bool
+	IncludeTimeBreakdown bool
+	IncludeAlternatives  bool
+}
+
+// DefaultAnalysisOptions returns options with all features enabled
+func DefaultAnalysisOptions() AnalysisOptions {
+	return AnalysisOptions{
+		IncludeDependencies:  true,
+		IncludeTimeBreakdown: true,
+		IncludeAlternatives:  true,
+	}
+}
+
+// AnalyzeWithEnhancements performs full analysis including Phase 2 enhancements
+func (a *Analyzer) AnalyzeWithEnhancements(ctx context.Context, op *models.Operation, opts AnalysisOptions) error {
+	// Step 1: Run base analysis (Phase 1)
+	if err := a.Analyze(ctx, op); err != nil {
+		return fmt.Errorf("base analysis failed: %w", err)
+	}
+
+	// Step 2: Enrich with Phase 2 features
+	if opts.IncludeDependencies && a.dependencyAnalyzer != nil {
+		deps, err := a.dependencyAnalyzer.FindDependencies(ctx, op)
+		if err != nil {
+			// Log error but don't fail - Phase 2 features are optional
+			// In production, this would use a logger
+			fmt.Printf("Warning: failed to find dependencies: %v\n", err)
+		} else {
+			op.Dependencies = deps
+		}
+	}
+
+	if opts.IncludeTimeBreakdown && a.timeEstimator != nil {
+		timeBreakdown, err := a.timeEstimator.EstimateTime(ctx, op)
+		if err != nil {
+			fmt.Printf("Warning: failed to estimate time breakdown: %v\n", err)
+		} else {
+			op.TimeBreakdown = timeBreakdown
+		}
+	}
+
+	if opts.IncludeAlternatives && a.alternativeGenerator != nil {
+		alternatives, err := a.alternativeGenerator.GenerateAlternatives(ctx, op)
+		if err != nil {
+			fmt.Printf("Warning: failed to generate alternatives: %v\n", err)
+		} else {
+			op.Alternatives = alternatives
+		}
+	}
+
+	return nil
 }

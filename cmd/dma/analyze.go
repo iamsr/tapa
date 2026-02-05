@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yourusername/dma/internal/analyzer"
+	postgresanalyzer "github.com/yourusername/dma/internal/analyzer/postgres"
 	"github.com/yourusername/dma/internal/config"
 	"github.com/yourusername/dma/internal/db"
 	"github.com/yourusername/dma/internal/introspector"
@@ -23,6 +24,7 @@ type analyzeOptions struct {
 	format          string
 	dryRun          bool
 	failOnRiskLevel string
+	comprehensive   bool // Enable all Phase 2 features
 }
 
 func newAnalyzeCommand() *cobra.Command {
@@ -48,6 +50,7 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.format, "format", "table", "output format (table, json, yaml)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
+	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (dependencies, time breakdown, alternatives)")
 
 	return cmd
 }
@@ -149,10 +152,30 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 
 		// Analyze each operation for production impact
 		if anlzr != nil {
-			for _, op := range migration.Operations {
-				if err := anlzr.Analyze(ctx, op); err != nil {
-					// Log warning but continue
-					fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+			// Check if we're using comprehensive analysis (Phase 2 features)
+			if opts.comprehensive {
+				// Type assert to PostgreSQL analyzer to access AnalyzeWithEnhancements
+				if pgAnalyzer, ok := anlzr.(*postgresanalyzer.Analyzer); ok {
+					analysisOpts := postgresanalyzer.DefaultAnalysisOptions()
+					for _, op := range migration.Operations {
+						if err := pgAnalyzer.AnalyzeWithEnhancements(ctx, op, analysisOpts); err != nil {
+							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+						}
+					}
+				} else {
+					// Fallback to basic analysis for non-PostgreSQL
+					for _, op := range migration.Operations {
+						if err := anlzr.Analyze(ctx, op); err != nil {
+							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+						}
+					}
+				}
+			} else {
+				// Use basic analysis
+				for _, op := range migration.Operations {
+					if err := anlzr.Analyze(ctx, op); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+					}
 				}
 			}
 		}
