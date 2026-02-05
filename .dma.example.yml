@@ -1,0 +1,31 @@
+# DMA (Database Migration Analyzer) Configuration Example
+# Copy this file to .dma.yml and customize for your environment
+
+database:
+  # Database type: postgresql or mysql
+  type: postgresql
+  
+  # Connection details
+  host: localhost
+  port: 5432
+  name: your_database_name
+  user: your_username
+  password: your_password
+
+analysis:
+  # Disk throughput in MB/s (default: 200 for SSD)
+  # Used to estimate table rewrite duration
+  disk_throughput_mbps: 200
+  
+  # Rewrite factor multiplier (default: 2.0)
+  # Accounts for indexes, constraints during table rewrites
+  rewrite_factor: 2.0
+
+output:
+  # Output format: table, json, or yaml (default: table)
+  format: table
+  
+  # Fail on risk level threshold for CI/CD (optional)
+  # Options: LOW, MEDIUM, HIGH, CRITICAL
+  # If set, exit code 1 when any operation meets/exceeds this level
+  # fail_on_risk_level: HIGH
