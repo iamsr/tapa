@@ -15,6 +15,7 @@ import (
 	"github.com/iamsr/tapa/internal/introspector"
 	"github.com/iamsr/tapa/internal/output"
 	"github.com/iamsr/tapa/internal/parser"
+	"github.com/iamsr/tapa/internal/ui"
 	"github.com/iamsr/tapa/pkg/models"
 	"github.com/spf13/cobra"
 )
@@ -26,6 +27,7 @@ type analyzeOptions struct {
 	dryRun          bool
 	failOnRiskLevel string
 	comprehensive   bool // Enable all Phase 2 features
+	verbose         bool // Enable verbose output with progress indicators
 }
 
 func newAnalyzeCommand() *cobra.Command {
@@ -52,6 +54,7 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
 	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (dependencies, time breakdown, alternatives)")
+	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose output with progress indicators")
 
 	return cmd
 }
@@ -127,6 +130,11 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		return fmt.Errorf("no migration files found in: %s", filePath)
 	}
 
+	// Print verbose info
+	if opts.verbose {
+		fmt.Fprintf(os.Stderr, "Found %d migration file(s) to analyze\n", len(files))
+	}
+
 	// Parse migrations
 	result := &models.AnalysisResult{
 		Migrations:      make([]*models.Migration, 0),
@@ -152,11 +160,16 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		fmt.Fprintf(os.Stderr, "Warning: unsupported database type: %s\n", cfg.Database.Type)
 	}
 
+	// Create progress bar for file parsing
+	progress := ui.NewProgressBar(os.Stderr, len(files), "Parsing files", opts.verbose)
+
 	ctx := context.Background()
+	operationCount := 0
 	for _, file := range files {
 		migration, err := sqlParser.ParseFile(file)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("failed to parse %s: %w", file, err))
+			progress.Increment()
 			continue
 		}
 
@@ -197,7 +210,17 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 			}
 		}
 
+		operationCount += len(migration.Operations)
 		result.Migrations = append(result.Migrations, migration)
+		progress.Increment()
+	}
+
+	// Finish progress bar
+	progress.Finish()
+
+	// Print summary statistics in verbose mode
+	if opts.verbose {
+		fmt.Fprintf(os.Stderr, "Analysis complete! Found %d operation(s) across %d file(s)\n", operationCount, len(result.Migrations))
 	}
 
 	// If we have errors and no successful migrations, return error
