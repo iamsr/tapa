@@ -75,6 +75,39 @@ tapa analyze migrations/001_migration.sql --db $DATABASE_URL
 tapa analyze migrations/ --db $DATABASE_URL --format json > report.json
 ```
 
+### Migration Batching
+
+Generate safer deployment strategies by grouping operations by risk level:
+
+```bash
+# Analyze and generate batching strategy
+tapa batch migrations/ --db-type postgresql
+
+# Output in JSON format
+tapa batch migrations/ --format json > batches.json
+```
+
+Features:
+- Risk-based operation grouping
+- Automatic prerequisite detection
+- Parallel execution recommendations
+- Per-batch time estimates
+
+See [Batching Guide](docs/batching-guide.md) for details.
+
+### Verbose Mode
+
+Get detailed progress information during analysis:
+
+```bash
+tapa analyze migrations/ --verbose
+```
+
+Shows:
+- File parsing progress
+- Operation counts
+- Execution time
+
 ### CI/CD Integration
 
 **GitHub Actions:**
@@ -99,6 +132,7 @@ migration-analysis:
 
 ## Documentation
 
+- [Migration Batching Guide](docs/batching-guide.md) - Safer incremental deployment strategies
 - [MySQL Support Guide](docs/mysql-support.md) - MySQL-specific features and pt-osc integration
 - [GitHub Actions Setup](docs/github-action-usage.md) - Automated PR analysis
 - [GitLab CI Setup](docs/gitlab-ci-usage.md) - Pipeline integration
