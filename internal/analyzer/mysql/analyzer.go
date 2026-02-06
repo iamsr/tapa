@@ -412,6 +412,22 @@ func (a *Analyzer) generateRecommendations(op *models.Operation, stats *db.Table
 			"HIGH RISK: Test thoroughly in staging and perform during low-traffic period")
 	}
 
+	// Add pt-osc command for high-risk operations
+	if op.RiskScore >= 75 {
+		if ShouldUsePtOsc(op) {
+			ptOscCmd := GeneratePtOscCommand(op, "localhost", "mydb")
+			if ptOscCmd != "" {
+				op.Recommendations = append(op.Recommendations,
+					fmt.Sprintf("pt-osc command: %s", ptOscCmd))
+			}
+		}
+	} else if op.RiskScore >= 50 {
+		if ShouldUsePtOsc(op) {
+			op.Recommendations = append(op.Recommendations,
+				"Consider using pt-osc or gh-ost for safer online schema change")
+		}
+	}
+
 	// Add duration-based recommendations
 	if op.EstimatedTimeSeconds > 300 { // > 5 minutes
 		op.Recommendations = append(op.Recommendations,
