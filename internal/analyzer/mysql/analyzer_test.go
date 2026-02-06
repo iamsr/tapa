@@ -8,7 +8,7 @@ import (
 )
 
 func TestAnalyzer_AddColumn_LockDetection(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 1.5)
+	analyzer := NewAnalyzer(nil, 100, 2.0)
 	ctx := context.Background()
 
 	op := &models.Operation{
@@ -33,7 +33,7 @@ func TestAnalyzer_AddColumn_LockDetection(t *testing.T) {
 }
 
 func TestAnalyzer_AddColumn_WithDefault_LockDetection(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 1.5)
+	analyzer := NewAnalyzer(nil, 100, 2.0)
 	ctx := context.Background()
 
 	op := &models.Operation{

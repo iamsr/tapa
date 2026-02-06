@@ -404,7 +404,7 @@ func (a *Analyzer) generateRecommendations(op *models.Operation, stats *db.Table
 	}
 
 	// Add risk-based recommendations
-	if op.RiskScore >= 76 {
+	if op.RiskScore >= 75 {
 		op.Recommendations = append(op.Recommendations,
 			"CRITICAL RISK: Consider performing this operation during maintenance window")
 	} else if op.RiskScore >= 51 {
