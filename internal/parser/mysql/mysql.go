@@ -63,7 +63,8 @@ func (p *Parser) ParseFile(filePath string) (*models.Migration, error) {
 		}
 		operations, err := p.Parse(stmt)
 		if err != nil {
-			return nil, err
+			// Skip malformed statement but continue with others
+			continue
 		}
 		for _, op := range operations {
 			migration.AddOperation(op)
