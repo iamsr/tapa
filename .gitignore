@@ -3,7 +3,7 @@
 
 # Go build artifacts
 bin/
-tapa
+/tapa
 dma
 *.exe
 *.exe~
