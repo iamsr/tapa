@@ -319,3 +319,28 @@ func TestParser_Parse_MultipleAlterOperations(t *testing.T) {
 		t.Errorf("Expected SQL %q, got %q", sql, ops[2].SQL)
 	}
 }
+
+func TestParser_Parse_DropTable(t *testing.T) {
+	parser := NewParser()
+	sql := "DROP TABLE users;"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeDropTable {
+		t.Errorf("Expected DROP_TABLE, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
+}

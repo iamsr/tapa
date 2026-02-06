@@ -105,8 +105,18 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 				operations = append(operations, op)
 			}
 		}
+	case *sqlparser.DropTable:
+		// DROP TABLE statement - can drop multiple tables
+		for _, table := range stmt.FromTables {
+			op := &models.Operation{
+				SQL:       sql,
+				Type:      models.OperationTypeDropTable,
+				TableName: table.Name.String(),
+			}
+			operations = append(operations, op)
+		}
 	default:
-		// Other statement types handled in subsequent tasks
+		// Other statement types not yet supported
 	}
 
 	return operations, nil

@@ -80,3 +80,101 @@ func TestAnalyzer_Integration_ComplexMigration(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalyzer_AnalyzeWithEnhancements_Phase2(t *testing.T) {
+	// Integration test for Phase 2 features (dependencies, time estimation, alternatives)
+	analyzer := NewAnalyzer(nil, 100, 2.0)
+	ctx := context.Background()
+
+	tests := []struct {
+		name                 string
+		sql                  string
+		opType               models.OperationType
+		expectDependencies   bool
+		expectTimeBreakdown  bool
+		expectAlternatives   bool
+		includeDependencies  bool
+		includeTimeBreakdown bool
+		includeAlternatives  bool
+	}{
+		{
+			name:                 "ADD COLUMN with all enhancements",
+			sql:                  "ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT 'unknown';",
+			opType:               models.OperationTypeAddColumn,
+			expectDependencies:   false, // No dependencies without introspector
+			expectTimeBreakdown:  true,  // Should have time estimate
+			expectAlternatives:   false, // ADD COLUMN doesn't have alternatives
+			includeDependencies:  true,
+			includeTimeBreakdown: true,
+			includeAlternatives:  true,
+		},
+		{
+			name:                 "CREATE INDEX with time breakdown",
+			sql:                  "CREATE INDEX idx_email ON users(email);",
+			opType:               models.OperationTypeCreateIndex,
+			expectDependencies:   false,
+			expectTimeBreakdown:  true,
+			expectAlternatives:   false, // Won't generate alternatives without high risk score
+			includeDependencies:  false,
+			includeTimeBreakdown: true,
+			includeAlternatives:  true,
+		},
+		{
+			name:                 "DROP COLUMN with dependencies only",
+			sql:                  "ALTER TABLE users DROP COLUMN email;",
+			opType:               models.OperationTypeDropColumn,
+			expectDependencies:   false, // No dependencies without introspector
+			expectTimeBreakdown:  false,
+			expectAlternatives:   false,
+			includeDependencies:  true,
+			includeTimeBreakdown: false,
+			includeAlternatives:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			op := &models.Operation{
+				Type:      tt.opType,
+				TableName: "users",
+				SQL:       tt.sql,
+			}
+
+			opts := AnalysisOptions{
+				IncludeDependencies:  tt.includeDependencies,
+				IncludeTimeBreakdown: tt.includeTimeBreakdown,
+				IncludeAlternatives:  tt.includeAlternatives,
+			}
+
+			err := analyzer.AnalyzeWithEnhancements(ctx, op, opts)
+			if err != nil {
+				t.Fatalf("AnalyzeWithEnhancements failed: %v", err)
+			}
+
+			// Basic analysis should still work
+			if op.LockType == "" {
+				t.Error("Expected lock type to be set")
+			}
+
+			// Check Phase 2 features
+			if tt.expectDependencies && len(op.Dependencies) == 0 {
+				t.Error("Expected dependencies to be populated")
+			}
+
+			if tt.expectTimeBreakdown && op.TimeBreakdown == nil {
+				t.Error("Expected time breakdown to be populated")
+			}
+
+			if tt.expectAlternatives && len(op.Alternatives) == 0 {
+				t.Error("Expected alternatives to be populated")
+			}
+
+			// Verify time breakdown structure if present
+			if op.TimeBreakdown != nil {
+				if op.TimeBreakdown.TotalSeconds == 0 {
+					t.Error("Expected total time to be calculated")
+				}
+			}
+		})
+	}
+}
