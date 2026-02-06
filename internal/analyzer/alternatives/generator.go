@@ -26,7 +26,7 @@ func GetAlternativeGenerator(dbType string) (AlternativeGenerator, error) {
 	case "postgresql", "postgres":
 		return &postgresGenerator{}, nil
 	case "mysql":
-		return nil, fmt.Errorf("MySQL alternative generator not yet implemented")
+		return NewMySQLGenerator(), nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
@@ -268,4 +268,159 @@ func (g *postgresGenerator) extractDefaultValue(sql string) string {
 		return matches[1]
 	}
 	return "NULL"
+}
+
+// MySQLGenerator generates safer alternatives for MySQL operations
+type MySQLGenerator struct{}
+
+// NewMySQLGenerator creates a MySQL alternative generator
+func NewMySQLGenerator() *MySQLGenerator {
+	return &MySQLGenerator{}
+}
+
+// CanGenerateAlternative checks if alternative exists for this operation
+func (g *MySQLGenerator) CanGenerateAlternative(op *models.Operation) bool {
+	if op.RiskScore < 51 {
+		return false
+	}
+
+	switch op.Type {
+	case models.OperationTypeAddColumn:
+		return strings.Contains(strings.ToUpper(op.SQL), "DEFAULT")
+	case models.OperationTypeCreateIndex:
+		return !strings.Contains(strings.ToUpper(op.SQL), "ALGORITHM=INPLACE")
+	default:
+		return false
+	}
+}
+
+// GenerateAlternatives generates alternative strategies for the given operation
+func (g *MySQLGenerator) GenerateAlternatives(ctx context.Context, op *models.Operation) ([]models.AlternativeStrategy, error) {
+	if !g.CanGenerateAlternative(op) {
+		return []models.AlternativeStrategy{}, nil
+	}
+
+	switch op.Type {
+	case models.OperationTypeAddColumn:
+		alt, err := g.addColumnWithDefault(op)
+		if err != nil {
+			return nil, err
+		}
+		return []models.AlternativeStrategy{*alt}, nil
+	case models.OperationTypeCreateIndex:
+		alt, err := g.createIndexOnline(op)
+		if err != nil {
+			return nil, err
+		}
+		return []models.AlternativeStrategy{*alt}, nil
+	default:
+		return []models.AlternativeStrategy{}, nil
+	}
+}
+
+// addColumnWithDefault generates 3-step alternative for ADD COLUMN with DEFAULT
+func (g *MySQLGenerator) addColumnWithDefault(op *models.Operation) (*models.AlternativeStrategy, error) {
+	// Extract column name and default value (simple parsing)
+	columnName := g.extractColumnName(op.SQL)
+
+	// Extract column definition without DEFAULT
+	colDef := strings.Split(op.SQL, "DEFAULT")[0]
+	colDef = strings.TrimSuffix(colDef, ";")
+
+	strategy := &models.AlternativeStrategy{
+		StrategyName:  "Online ADD COLUMN with DEFAULT",
+		Description:   "Add column without default, backfill, then set default",
+		RiskReduction: 40,
+		Tradeoffs: []string{
+			"Requires 3 separate migrations",
+			"Application must handle NULL values during transition",
+			"Total time longer but non-blocking",
+		},
+	}
+
+	strategy.Steps = []models.AlternativeStep{
+		{
+			StepNumber:        1,
+			Phase:             models.PhasePreDeploy,
+			SQL:               colDef + ";",
+			Description:       "Add column without default (online, no lock)",
+			RequiresAppChange: false,
+			RiskScore:         20,
+			EstimatedTime:     0.1,
+			CanRunOffline:     true,
+		},
+		{
+			StepNumber:        2,
+			Phase:             models.PhasePreDeploy,
+			SQL:               fmt.Sprintf("-- Backfill in batches\nUPDATE %s SET %s = 'default_value' WHERE %s IS NULL LIMIT 10000;", op.TableName, columnName, columnName),
+			Description:       "Backfill existing rows in small batches",
+			RequiresAppChange: false,
+			RiskScore:         15,
+			EstimatedTime:     op.EstimatedTimeSeconds,
+			CanRunOffline:     true,
+		},
+		{
+			StepNumber:        3,
+			Phase:             models.PhaseDuringDeploy,
+			SQL:               fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT 'default_value';", op.TableName, columnName),
+			Description:       "Set default value (metadata only)",
+			RequiresAppChange: false,
+			RiskScore:         5,
+			EstimatedTime:     0.1,
+			CanRunOffline:     false,
+		},
+	}
+
+	strategy.EstimatedTime = strategy.Steps[0].EstimatedTime +
+		strategy.Steps[1].EstimatedTime +
+		strategy.Steps[2].EstimatedTime
+
+	return strategy, nil
+}
+
+// createIndexOnline suggests ALGORITHM=INPLACE
+func (g *MySQLGenerator) createIndexOnline(op *models.Operation) (*models.AlternativeStrategy, error) {
+	strategy := &models.AlternativeStrategy{
+		StrategyName:  "Online Index Creation",
+		Description:   "Use ALGORITHM=INPLACE for non-blocking index creation",
+		RiskReduction: 30,
+		Tradeoffs: []string{
+			"Slightly slower than ALGORITHM=COPY",
+			"Requires MySQL 5.7+",
+		},
+	}
+
+	// Add ALGORITHM=INPLACE to SQL
+	newSQL := strings.TrimSuffix(op.SQL, ";") + " ALGORITHM=INPLACE, LOCK=NONE;"
+
+	strategy.Steps = []models.AlternativeStep{
+		{
+			StepNumber:        1,
+			Phase:             models.PhaseDuringDeploy,
+			SQL:               newSQL,
+			Description:       "Create index online without blocking",
+			RequiresAppChange: false,
+			RiskScore:         20,
+			EstimatedTime:     op.EstimatedTimeSeconds,
+			CanRunOffline:     true,
+		},
+	}
+
+	strategy.EstimatedTime = op.EstimatedTimeSeconds
+
+	return strategy, nil
+}
+
+// extractColumnName extracts column name from ADD COLUMN statement (MySQL version)
+func (g *MySQLGenerator) extractColumnName(sql string) string {
+	// Pattern: ADD COLUMN <name> <type>...
+	pattern := regexp.MustCompile(`(?i)ADD\s+COLUMN\s+(?:\x60([^\x60]+)\x60|(\w+))`)
+	matches := pattern.FindStringSubmatch(sql)
+	if len(matches) > 2 {
+		if matches[1] != "" {
+			return matches[1] // backtick-quoted identifier
+		}
+		return matches[2] // unquoted identifier
+	}
+	return "column_name"
 }
