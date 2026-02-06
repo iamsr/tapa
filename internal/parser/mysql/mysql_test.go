@@ -27,6 +27,9 @@ func TestParser_Parse_CreateTable(t *testing.T) {
 	if op.TableName != "users" {
 		t.Errorf("Expected table 'users', got '%s'", op.TableName)
 	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
 }
 
 func TestParser_Parse_AddColumn(t *testing.T) {
@@ -51,6 +54,9 @@ func TestParser_Parse_AddColumn(t *testing.T) {
 	}
 	if op.ColumnName != "email" {
 		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
 	}
 }
 
@@ -113,6 +119,9 @@ func TestParser_Parse_DropColumn(t *testing.T) {
 	if op.ColumnName != "email" {
 		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
 	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
 }
 
 func TestParser_Parse_AlterColumn(t *testing.T) {
@@ -137,6 +146,37 @@ func TestParser_Parse_AlterColumn(t *testing.T) {
 	}
 	if op.ColumnName != "email" {
 		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
+}
+
+func TestParser_Parse_ChangeColumn(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users CHANGE COLUMN old_email new_email VARCHAR(255);"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeAlterColumn {
+		t.Errorf("Expected ALTER_COLUMN, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.ColumnName != "new_email" {
+		t.Errorf("Expected column 'new_email', got '%s'", op.ColumnName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
 	}
 }
 
@@ -163,6 +203,37 @@ func TestParser_Parse_CreateIndex(t *testing.T) {
 	if op.IndexName != "idx_email" {
 		t.Errorf("Expected index 'idx_email', got '%s'", op.IndexName)
 	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
+}
+
+func TestParser_Parse_AddIndexViaAlterTable(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users ADD INDEX idx_email(email);"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeCreateIndex {
+		t.Errorf("Expected CREATE_INDEX, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.IndexName != "idx_email" {
+		t.Errorf("Expected index 'idx_email', got '%s'", op.IndexName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
 }
 
 func TestParser_Parse_DropIndex(t *testing.T) {
@@ -187,5 +258,64 @@ func TestParser_Parse_DropIndex(t *testing.T) {
 	}
 	if op.IndexName != "idx_email" {
 		t.Errorf("Expected index 'idx_email', got '%s'", op.IndexName)
+	}
+	if op.SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, op.SQL)
+	}
+}
+
+func TestParser_Parse_MultipleAlterOperations(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users ADD COLUMN x INT, DROP COLUMN y, ADD INDEX idx(x);"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 3 {
+		t.Fatalf("Expected 3 operations, got %d", len(ops))
+	}
+
+	// Verify first operation: ADD COLUMN
+	if ops[0].Type != models.OperationTypeAddColumn {
+		t.Errorf("Expected first operation to be ADD_COLUMN, got %s", ops[0].Type)
+	}
+	if ops[0].TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", ops[0].TableName)
+	}
+	if ops[0].ColumnName != "x" {
+		t.Errorf("Expected column 'x', got '%s'", ops[0].ColumnName)
+	}
+	if ops[0].SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, ops[0].SQL)
+	}
+
+	// Verify second operation: DROP COLUMN
+	if ops[1].Type != models.OperationTypeDropColumn {
+		t.Errorf("Expected second operation to be DROP_COLUMN, got %s", ops[1].Type)
+	}
+	if ops[1].TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", ops[1].TableName)
+	}
+	if ops[1].ColumnName != "y" {
+		t.Errorf("Expected column 'y', got '%s'", ops[1].ColumnName)
+	}
+	if ops[1].SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, ops[1].SQL)
+	}
+
+	// Verify third operation: CREATE INDEX
+	if ops[2].Type != models.OperationTypeCreateIndex {
+		t.Errorf("Expected third operation to be CREATE_INDEX, got %s", ops[2].Type)
+	}
+	if ops[2].TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", ops[2].TableName)
+	}
+	if ops[2].IndexName != "idx" {
+		t.Errorf("Expected index 'idx', got '%s'", ops[2].IndexName)
+	}
+	if ops[2].SQL != sql {
+		t.Errorf("Expected SQL %q, got %q", sql, ops[2].SQL)
 	}
 }

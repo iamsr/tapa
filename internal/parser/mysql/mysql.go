@@ -50,6 +50,8 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 					operations = append(operations, op)
 				}
 			case *sqlparser.DropColumn:
+				// DropColumn: ALTER TABLE ... DROP COLUMN col_name
+				// Name is a ColName struct, need .Name.String() to get identifier
 				op := &models.Operation{
 					SQL:        sql,
 					Type:       models.OperationTypeDropColumn,
@@ -58,22 +60,32 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 				}
 				operations = append(operations, op)
 			case *sqlparser.ModifyColumn:
-				op := &models.Operation{
-					SQL:        sql,
-					Type:       models.OperationTypeAlterColumn,
-					TableName:  tableName,
-					ColumnName: opt.NewColDefinition.Name.String(),
+				// ModifyColumn: ALTER TABLE ... MODIFY COLUMN col_name type
+				// Access new column definition for the modified column name
+				if opt.NewColDefinition != nil && opt.NewColDefinition.Name.String() != "" {
+					op := &models.Operation{
+						SQL:        sql,
+						Type:       models.OperationTypeAlterColumn,
+						TableName:  tableName,
+						ColumnName: opt.NewColDefinition.Name.String(),
+					}
+					operations = append(operations, op)
 				}
-				operations = append(operations, op)
 			case *sqlparser.ChangeColumn:
-				op := &models.Operation{
-					SQL:        sql,
-					Type:       models.OperationTypeAlterColumn,
-					TableName:  tableName,
-					ColumnName: opt.NewColDefinition.Name.String(),
+				// ChangeColumn: ALTER TABLE ... CHANGE COLUMN old_col new_col type
+				// Access new column definition for the new column name
+				if opt.NewColDefinition != nil && opt.NewColDefinition.Name.String() != "" {
+					op := &models.Operation{
+						SQL:        sql,
+						Type:       models.OperationTypeAlterColumn,
+						TableName:  tableName,
+						ColumnName: opt.NewColDefinition.Name.String(),
+					}
+					operations = append(operations, op)
 				}
-				operations = append(operations, op)
 			case *sqlparser.AddIndexDefinition:
+				// AddIndexDefinition: ALTER TABLE ... ADD INDEX idx_name(col)
+				// IndexDefinition.Info.Name contains the index name identifier
 				op := &models.Operation{
 					SQL:       sql,
 					Type:      models.OperationTypeCreateIndex,
@@ -82,6 +94,8 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 				}
 				operations = append(operations, op)
 			case *sqlparser.DropKey:
+				// DropKey: ALTER TABLE ... DROP INDEX idx_name
+				// Name is a direct identifier for the index
 				op := &models.Operation{
 					SQL:       sql,
 					Type:      models.OperationTypeDropIndex,
