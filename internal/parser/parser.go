@@ -3,9 +3,9 @@ package parser
 import (
 	"fmt"
 
-	"github.com/yourusername/dma/internal/parser/mysql"
-	"github.com/yourusername/dma/internal/parser/postgres"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/parser/mysql"
+	"github.com/iamsr/dma/internal/parser/postgres"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // Parser is the interface for database-specific SQL parsers

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	pg_query "github.com/pganalyze/pg_query_go/v5"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // Parser handles PostgreSQL DDL parsing

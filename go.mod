@@ -1,4 +1,4 @@
-module github.com/yourusername/dma
+module github.com/iamsr/dma
 
 go 1.25.6
 

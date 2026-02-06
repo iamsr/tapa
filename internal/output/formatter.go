@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 

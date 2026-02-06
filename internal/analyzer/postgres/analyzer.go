@@ -6,11 +6,11 @@ import (
 	"math"
 	"strings"
 
-	"github.com/yourusername/dma/internal/analyzer/alternatives"
-	"github.com/yourusername/dma/internal/analyzer/dependencies"
-	"github.com/yourusername/dma/internal/analyzer/estimator"
-	"github.com/yourusername/dma/internal/db"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/analyzer/alternatives"
+	"github.com/iamsr/dma/internal/analyzer/dependencies"
+	"github.com/iamsr/dma/internal/analyzer/estimator"
+	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // Analyzer analyzes PostgreSQL operations for production impact

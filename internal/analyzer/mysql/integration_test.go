@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 func TestAnalyzer_Integration_ComplexMigration(t *testing.T) {

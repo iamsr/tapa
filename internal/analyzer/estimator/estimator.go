@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourusername/dma/internal/db"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // TimeEstimator calculates detailed time estimates for operations

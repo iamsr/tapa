@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // TestAnalyzeWithEnhancements_Integration tests full Phase 2 analysis with all features enabled

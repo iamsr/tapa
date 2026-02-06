@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/yourusername/dma/internal/db"
+	"github.com/iamsr/dma/internal/db"
 )
 
 // Introspector implements database introspection for PostgreSQL

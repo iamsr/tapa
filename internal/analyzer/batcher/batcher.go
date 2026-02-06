@@ -3,7 +3,7 @@ package batcher
 import (
 	"fmt"
 
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // MigrationBatcher generates batching strategies for migration operations

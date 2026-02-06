@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/yourusername/dma/internal/analyzer"
-	postgresanalyzer "github.com/yourusername/dma/internal/analyzer/postgres"
-	"github.com/yourusername/dma/internal/config"
-	"github.com/yourusername/dma/internal/db"
-	"github.com/yourusername/dma/internal/introspector"
-	"github.com/yourusername/dma/internal/output"
-	"github.com/yourusername/dma/internal/parser"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/analyzer"
+	postgresanalyzer "github.com/iamsr/dma/internal/analyzer/postgres"
+	"github.com/iamsr/dma/internal/config"
+	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/dma/internal/introspector"
+	"github.com/iamsr/dma/internal/output"
+	"github.com/iamsr/dma/internal/parser"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 type analyzeOptions struct {

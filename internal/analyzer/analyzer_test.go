@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yourusername/dma/internal/db"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 // mockIntrospector for testing

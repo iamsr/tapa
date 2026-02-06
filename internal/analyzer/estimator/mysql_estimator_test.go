@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yourusername/dma/internal/db"
-	"github.com/yourusername/dma/pkg/models"
+	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/dma/pkg/models"
 )
 
 func TestMySQLEstimator_EstimateTime_WithRewrite(t *testing.T) {
