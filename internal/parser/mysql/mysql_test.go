@@ -89,3 +89,103 @@ CREATE TABLE posts (id INT PRIMARY KEY, user_id INT);`
 		t.Errorf("Expected second table 'posts', got '%s'", migration.Operations[1].TableName)
 	}
 }
+
+func TestParser_Parse_DropColumn(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users DROP COLUMN email;"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeDropColumn {
+		t.Errorf("Expected DROP_COLUMN, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.ColumnName != "email" {
+		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
+	}
+}
+
+func TestParser_Parse_AlterColumn(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users MODIFY COLUMN email TEXT;"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeAlterColumn {
+		t.Errorf("Expected ALTER_COLUMN, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.ColumnName != "email" {
+		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
+	}
+}
+
+func TestParser_Parse_CreateIndex(t *testing.T) {
+	parser := NewParser()
+	sql := "CREATE INDEX idx_email ON users(email);"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeCreateIndex {
+		t.Errorf("Expected CREATE_INDEX, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.IndexName != "idx_email" {
+		t.Errorf("Expected index 'idx_email', got '%s'", op.IndexName)
+	}
+}
+
+func TestParser_Parse_DropIndex(t *testing.T) {
+	parser := NewParser()
+	sql := "DROP INDEX idx_email ON users;"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeDropIndex {
+		t.Errorf("Expected DROP_INDEX, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.IndexName != "idx_email" {
+		t.Errorf("Expected index 'idx_email', got '%s'", op.IndexName)
+	}
+}

@@ -49,6 +49,46 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 					}
 					operations = append(operations, op)
 				}
+			case *sqlparser.DropColumn:
+				op := &models.Operation{
+					SQL:        sql,
+					Type:       models.OperationTypeDropColumn,
+					TableName:  tableName,
+					ColumnName: opt.Name.Name.String(),
+				}
+				operations = append(operations, op)
+			case *sqlparser.ModifyColumn:
+				op := &models.Operation{
+					SQL:        sql,
+					Type:       models.OperationTypeAlterColumn,
+					TableName:  tableName,
+					ColumnName: opt.NewColDefinition.Name.String(),
+				}
+				operations = append(operations, op)
+			case *sqlparser.ChangeColumn:
+				op := &models.Operation{
+					SQL:        sql,
+					Type:       models.OperationTypeAlterColumn,
+					TableName:  tableName,
+					ColumnName: opt.NewColDefinition.Name.String(),
+				}
+				operations = append(operations, op)
+			case *sqlparser.AddIndexDefinition:
+				op := &models.Operation{
+					SQL:       sql,
+					Type:      models.OperationTypeCreateIndex,
+					TableName: tableName,
+					IndexName: opt.IndexDefinition.Info.Name.String(),
+				}
+				operations = append(operations, op)
+			case *sqlparser.DropKey:
+				op := &models.Operation{
+					SQL:       sql,
+					Type:      models.OperationTypeDropIndex,
+					TableName: tableName,
+					IndexName: opt.Name.String(),
+				}
+				operations = append(operations, op)
 			}
 		}
 	default:
