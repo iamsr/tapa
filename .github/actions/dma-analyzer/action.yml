@@ -1,0 +1,40 @@
+name: 'DMA Migration Analyzer'
+description: 'Analyzes database migrations and comments on PRs with risk assessment'
+author: 'Your Name'
+
+inputs:
+  migration-path:
+    description: 'Path to migration files (file or directory)'
+    required: true
+  db-url:
+    description: 'Database connection URL (optional, uses dry-run if not provided)'
+    required: false
+  db-type:
+    description: 'Database type (postgresql, mysql)'
+    required: false
+    default: 'postgresql'
+  fail-on-risk:
+    description: 'Fail if risk level exceeds threshold (low, medium, high, critical)'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token for PR comments'
+    required: true
+  comprehensive:
+    description: 'Enable comprehensive analysis (dependencies, time breakdown, alternatives)'
+    required: false
+    default: 'true'
+
+outputs:
+  risk-level:
+    description: 'Highest risk level found (low, medium, high, critical)'
+  total-operations:
+    description: 'Total number of operations analyzed'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'database'
+  color: 'blue'
