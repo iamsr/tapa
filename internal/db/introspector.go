@@ -21,6 +21,14 @@ type IndexInfo struct {
 	IsUnique  bool
 }
 
+// ForeignKeyInfo contains information about a foreign key constraint
+type ForeignKeyInfo struct {
+	Name             string
+	Column           string
+	ReferencedTable  string
+	ReferencedColumn string
+}
+
 // Introspector provides database introspection capabilities
 type Introspector interface {
 	// Connect establishes a connection to the database
