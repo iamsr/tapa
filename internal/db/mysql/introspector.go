@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	_ "github.com/go-sql-driver/mysql" // MySQL driver
 	"github.com/yourusername/dma/internal/db"
@@ -123,7 +124,8 @@ func (i *Introspector) GetIndexes(ctx context.Context, tableName string) ([]db.I
 		SELECT
 			index_name,
 			column_name,
-			non_unique
+			non_unique,
+			index_type
 		FROM information_schema.statistics
 		WHERE table_schema = DATABASE()
 		  AND table_name = ?
@@ -140,10 +142,10 @@ func (i *Introspector) GetIndexes(ctx context.Context, tableName string) ([]db.I
 	indexMap := make(map[string]*db.IndexInfo)
 
 	for rows.Next() {
-		var indexName, columnName string
+		var indexName, columnName, indexType string
 		var nonUnique int
 
-		if err := rows.Scan(&indexName, &columnName, &nonUnique); err != nil {
+		if err := rows.Scan(&indexName, &columnName, &nonUnique, &indexType); err != nil {
 			return nil, fmt.Errorf("failed to scan index row: %w", err)
 		}
 
@@ -151,7 +153,7 @@ func (i *Introspector) GetIndexes(ctx context.Context, tableName string) ([]db.I
 			indexMap[indexName] = &db.IndexInfo{
 				IndexName: indexName,
 				Columns:   make([]string, 0),
-				IndexType: "BTREE", // MySQL defaults to BTREE
+				IndexType: indexType,
 				IsUnique:  nonUnique == 0,
 			}
 		}
@@ -168,6 +170,11 @@ func (i *Introspector) GetIndexes(ctx context.Context, tableName string) ([]db.I
 	for _, idx := range indexMap {
 		indexes = append(indexes, *idx)
 	}
+
+	// Sort by index name for deterministic output
+	sort.Slice(indexes, func(i, j int) bool {
+		return indexes[i].IndexName < indexes[j].IndexName
+	})
 
 	return indexes, nil
 }
