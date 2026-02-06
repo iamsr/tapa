@@ -1,10 +1,10 @@
-# Database Migration Analyzer (DMA)
+# Table Alteration Planning Assistant (TAPA)
 
-[![CI](https://github.com/iamsr/dma/workflows/CI/badge.svg)](https://github.com/iamsr/dma/actions)
-[![codecov](https://codecov.io/gh/iamsr/dma/branch/main/graph/badge.svg)](https://codecov.io/gh/iamsr/dma)
+[![CI](https://github.com/iamsr/tapa/workflows/CI/badge.svg)](https://github.com/iamsr/tapa/actions)
+[![codecov](https://codecov.io/gh/iamsr/tapa/branch/main/graph/badge.svg)](https://codecov.io/gh/iamsr/tapa)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-A static analysis tool that predicts the production impact of database migrations before execution. DMA analyzes migration files and provides risk assessments, lock predictions, time estimates, and safer alternatives.
+A static analysis tool that predicts the production impact of database migrations before execution. TAPA analyzes migration files and provides risk assessments, lock predictions, time estimates, and safer alternatives.
 
 **Supported Databases:** PostgreSQL 9.6+, MySQL 5.7+
 
@@ -32,7 +32,7 @@ A static analysis tool that predicts the production impact of database migration
 ## Installation
 
 ```bash
-go install github.com/iamsr/dma/cmd/dma@latest
+go install github.com/iamsr/tapa/cmd/tapa@latest
 ```
 
 ## Quick Start
@@ -42,44 +42,44 @@ go install github.com/iamsr/dma/cmd/dma@latest
 **PostgreSQL:**
 ```bash
 # Single file
-dma analyze migrations/001_add_column.sql --db postgres://localhost/mydb
+tapa analyze migrations/001_add_column.sql --db postgres://localhost/mydb
 
 # Directory
-dma analyze migrations/ --db postgres://user:pass@host/dbname
+tapa analyze migrations/ --db postgres://user:pass@host/dbname
 
 # Comprehensive analysis with all features
-dma analyze migrations/ --db $DATABASE_URL --comprehensive
+tapa analyze migrations/ --db $DATABASE_URL --comprehensive
 ```
 
 **MySQL:**
 ```bash
 # Basic analysis
-dma analyze migrations/001_add_index.sql --db-type mysql --db mysql://root@localhost/mydb
+tapa analyze migrations/001_add_index.sql --db-type mysql --db mysql://root@localhost/mydb
 
 # With pt-osc recommendations
-dma analyze migrations/ --db-type mysql --db mysql://localhost/mydb
+tapa analyze migrations/ --db-type mysql --db mysql://localhost/mydb
 
 # Dry run (no database connection)
-dma analyze migrations/ --db-type mysql --dry-run
+tapa analyze migrations/ --db-type mysql --dry-run
 ```
 
 ### Output Formats
 
 **Human-readable (default):**
 ```bash
-dma analyze migrations/001_migration.sql --db $DATABASE_URL
+tapa analyze migrations/001_migration.sql --db $DATABASE_URL
 ```
 
 **JSON (for CI/CD):**
 ```bash
-dma analyze migrations/ --db $DATABASE_URL --format json > report.json
+tapa analyze migrations/ --db $DATABASE_URL --format json > report.json
 ```
 
 ### CI/CD Integration
 
 **GitHub Actions:**
 ```yaml
-- uses: ./.github/actions/dma-analyzer
+- uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'migrations/'
     db-type: 'postgresql'
@@ -91,7 +91,7 @@ dma analyze migrations/ --db $DATABASE_URL --format json > report.json
 ```yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_DB_TYPE: postgresql
     DMA_FAIL_ON_RISK: high
@@ -108,7 +108,7 @@ Full documentation available in [docs/](docs/).
 ## Architecture
 
 ```
-cmd/dma/              # CLI entry point
+cmd/tapa/              # CLI entry point
 internal/
   parser/             # SQL parsing (PostgreSQL, MySQL)
   analyzer/           # Lock detection, risk scoring
@@ -125,7 +125,7 @@ pkg/models/           # Core data structures
 
 **Build:**
 ```bash
-go build ./cmd/dma
+go build ./cmd/tapa
 ```
 
 **Test:**

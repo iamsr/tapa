@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // DependencyAnalyzer finds dependencies affected by an operation

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestGeneratePtOscCommand(t *testing.T) {

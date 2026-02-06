@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestParser_Parse_CreateTable(t *testing.T) {

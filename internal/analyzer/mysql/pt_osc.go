@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // GeneratePtOscCommand generates pt-online-schema-change command for high-risk operations

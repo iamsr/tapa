@@ -3,8 +3,8 @@ package estimator
 import (
 	"context"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // mysqlTimeEstimator implements TimeEstimator for MySQL

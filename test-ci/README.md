@@ -59,7 +59,7 @@ These scripts allow you to test the DMA CI/CD integrations locally before commit
 1. Checks prerequisites (Go, jq)
 2. Creates test migration files
 3. Sets DMA environment variables
-4. Executes `.gitlab/dma-analyzer.sh`
+4. Executes `.gitlab/tapa-analyzer.sh`
 5. Verifies JSON and Markdown reports
 6. Displays report summary
 7. Cleans up test files

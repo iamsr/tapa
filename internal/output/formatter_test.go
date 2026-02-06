@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 

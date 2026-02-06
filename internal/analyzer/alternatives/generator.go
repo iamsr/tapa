@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // AlternativeGenerator generates safer multi-step alternatives for high-risk operations

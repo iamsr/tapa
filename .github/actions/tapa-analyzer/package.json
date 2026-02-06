@@ -1,5 +1,5 @@
 {
-  "name": "dma-analyzer-action",
+  "name": "tapa-analyzer-action",
   "version": "1.0.0",
   "description": "GitHub Action for DMA migration analysis",
   "main": "dist/index.js",

@@ -8,7 +8,7 @@ Integrate DMA into your GitLab CI pipeline to automatically analyze migrations o
 
 1. **Add the script to your repository:**
 
-Copy `.gitlab/dma-analyzer.sh` to your repository.
+Copy `.gitlab/tapa-analyzer.sh` to your repository.
 
 2. **Update `.gitlab-ci.yml`:**
 
@@ -22,7 +22,7 @@ migration-analysis:
   before_script:
     - apt-get update && apt-get install -y jq
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_DB_TYPE: postgresql
     DMA_COMPREHENSIVE: "true"
@@ -57,7 +57,7 @@ migration-analysis:
 ```yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_DB_URL: $DATABASE_URL
     DMA_DB_TYPE: mysql
@@ -68,7 +68,7 @@ migration-analysis:
 ```yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_FAIL_ON_RISK: medium
 ```
@@ -78,7 +78,7 @@ migration-analysis:
 ```yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh db/schema/migrations/
+    - ./.gitlab/tapa-analyzer.sh db/schema/migrations/
 ```
 
 ## Viewing Reports

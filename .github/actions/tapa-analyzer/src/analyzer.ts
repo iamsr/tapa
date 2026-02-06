@@ -104,7 +104,7 @@ export async function analyzeMigrations(
 
 async function installDMA(): Promise<void> {
   core.info('Installing DMA...');
-  await exec.exec('go', ['install', 'github.com/iamsr/dma/cmd/dma@latest']);
+  await exec.exec('go', ['install', 'github.com/iamsr/tapa/cmd/tapa@latest']);
 }
 
 function getRiskLevel(score: number): string {

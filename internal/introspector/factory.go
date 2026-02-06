@@ -3,9 +3,9 @@ package introspector
 import (
 	"fmt"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/internal/db/mysql"
-	"github.com/iamsr/dma/internal/db/postgres"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/internal/db/mysql"
+	"github.com/iamsr/tapa/internal/db/postgres"
 )
 
 // GetIntrospector returns the appropriate introspector for the database type

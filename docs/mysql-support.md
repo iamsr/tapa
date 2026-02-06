@@ -41,7 +41,7 @@ DMA queries your live MySQL database for:
 For operations requiring zero-downtime:
 
 ```bash
-dma analyze migration.sql --db mysql://localhost/mydb --use-pt-osc
+tapa analyze migration.sql --db mysql://localhost/mydb --use-pt-osc
 ```
 
 DMA automatically:
@@ -56,26 +56,26 @@ DMA automatically:
 
 ```bash
 # Analyze single file
-dma analyze migrations/001_add_index.sql --db mysql://root@localhost/mydb
+tapa analyze migrations/001_add_index.sql --db mysql://root@localhost/mydb
 
 # Analyze directory
-dma analyze migrations/ --db mysql://user:pass@host:3306/dbname
+tapa analyze migrations/ --db mysql://user:pass@host:3306/dbname
 ```
 
 ### With pt-online-schema-change
 
 ```bash
 # Use pt-osc for safe migrations
-dma analyze migrations/ --db mysql://localhost/mydb --use-pt-osc
+tapa analyze migrations/ --db mysql://localhost/mydb --use-pt-osc
 
 # Dry run to see commands
-dma analyze migrations/ --db mysql://localhost/mydb --use-pt-osc --dry-run
+tapa analyze migrations/ --db mysql://localhost/mydb --use-pt-osc --dry-run
 ```
 
 ### JSON Output for CI/CD
 
 ```bash
-dma analyze migrations/ --db $MYSQL_URL --format json > report.json
+tapa analyze migrations/ --db $MYSQL_URL --format json > report.json
 ```
 
 ## Supported Operations

@@ -3,7 +3,7 @@ package batcher
 import (
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // TestGetMigrationBatcher tests the factory pattern

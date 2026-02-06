@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestGetTimeEstimator(t *testing.T) {

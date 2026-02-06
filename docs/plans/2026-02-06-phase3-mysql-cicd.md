@@ -36,7 +36,7 @@ package mysql
 import (
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestParser_Parse_CreateTable(t *testing.T) {
@@ -81,7 +81,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -478,7 +478,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // Introspector queries MySQL database for schema information
@@ -635,9 +635,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/internal/db/mysql"
-	"github.com/iamsr/dma/internal/db/postgres"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/internal/db/mysql"
+	"github.com/iamsr/tapa/internal/db/postgres"
 )
 
 // GetIntrospector returns the appropriate introspector for the database type
@@ -679,7 +679,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestAnalyzer_AddColumn_LockDetection(t *testing.T) {
@@ -755,8 +755,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // Analyzer analyzes MySQL operations for locks and risks
@@ -1007,10 +1007,10 @@ import (
 	"context"
 	"fmt"
 
-	mysqlanalyzer "github.com/iamsr/dma/internal/analyzer/mysql"
-	postgresanalyzer "github.com/iamsr/dma/internal/analyzer/postgres"
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	mysqlanalyzer "github.com/iamsr/tapa/internal/analyzer/mysql"
+	postgresanalyzer "github.com/iamsr/tapa/internal/analyzer/postgres"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // Analyzer analyzes database operations for production impact
@@ -1059,7 +1059,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestMySQLEstimator_EstimateTime_WithRewrite(t *testing.T) {
@@ -1112,8 +1112,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // MySQLEstimator estimates operation time for MySQL
@@ -1207,8 +1207,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // TimeEstimator estimates operation execution time
@@ -1623,7 +1623,7 @@ package mysql
 import (
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestGeneratePtOscCommand(t *testing.T) {
@@ -1674,7 +1674,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // GeneratePtOscCommand generates pt-online-schema-change command for high-risk operations
@@ -1812,7 +1812,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestAnalyzer_Integration_ComplexMigration(t *testing.T) {
@@ -1911,7 +1911,7 @@ git commit -m "test: add MySQL analyzer integration tests"
 
 **Files:**
 - Create: `examples/mysql_migration.sql`
-- Modify: `cmd/dma/analyze_test.go`
+- Modify: `cmd/tapa/analyze_test.go`
 
 **Step 1: Create example MySQL migration**
 
@@ -1930,7 +1930,7 @@ ALTER TABLE users MODIFY COLUMN status ENUM('active', 'inactive', 'suspended');
 
 **Step 2: Write CLI test for MySQL**
 
-Add to `cmd/dma/analyze_test.go`:
+Add to `cmd/tapa/analyze_test.go`:
 
 ```go
 func TestAnalyzeCommand_MySQL_DryRun(t *testing.T) {
@@ -1979,7 +1979,7 @@ CREATE INDEX idx_email ON users(email) ALGORITHM=INPLACE;
 **Step 3: Run test**
 
 ```bash
-go test ./cmd/dma -v -run TestAnalyzeCommand_MySQL
+go test ./cmd/tapa -v -run TestAnalyzeCommand_MySQL
 ```
 
 Expected: PASS
@@ -1987,7 +1987,7 @@ Expected: PASS
 **Step 4: Commit**
 
 ```bash
-git add examples/mysql_migration.sql cmd/dma/analyze_test.go
+git add examples/mysql_migration.sql cmd/tapa/analyze_test.go
 git commit -m "test: add MySQL end-to-end CLI tests"
 ```
 
@@ -1998,13 +1998,13 @@ git commit -m "test: add MySQL end-to-end CLI tests"
 ### Task 13: GitHub Action - Project Setup
 
 **Files:**
-- Create: `.github/actions/dma-analyzer/action.yml`
-- Create: `.github/actions/dma-analyzer/package.json`
-- Create: `.github/actions/dma-analyzer/tsconfig.json`
+- Create: `.github/actions/tapa-analyzer/action.yml`
+- Create: `.github/actions/tapa-analyzer/package.json`
+- Create: `.github/actions/tapa-analyzer/tsconfig.json`
 
 **Step 1: Create action metadata**
 
-Create `.github/actions/dma-analyzer/action.yml`:
+Create `.github/actions/tapa-analyzer/action.yml`:
 
 ```yaml
 name: 'DMA Migration Analyzer'
@@ -2051,11 +2051,11 @@ branding:
 
 **Step 2: Create package.json**
 
-Create `.github/actions/dma-analyzer/package.json`:
+Create `.github/actions/tapa-analyzer/package.json`:
 
 ```json
 {
-  "name": "dma-analyzer-action",
+  "name": "tapa-analyzer-action",
   "version": "1.0.0",
   "description": "GitHub Action for DMA migration analysis",
   "main": "dist/index.js",
@@ -2078,7 +2078,7 @@ Create `.github/actions/dma-analyzer/package.json`:
 
 **Step 3: Create tsconfig.json**
 
-Create `.github/actions/dma-analyzer/tsconfig.json`:
+Create `.github/actions/tapa-analyzer/tsconfig.json`:
 
 ```json
 {
@@ -2101,7 +2101,7 @@ Create `.github/actions/dma-analyzer/tsconfig.json`:
 **Step 4: Commit**
 
 ```bash
-git add .github/actions/dma-analyzer/
+git add .github/actions/tapa-analyzer/
 git commit -m "chore: add GitHub Action project setup for DMA analyzer"
 ```
 
@@ -2110,12 +2110,12 @@ git commit -m "chore: add GitHub Action project setup for DMA analyzer"
 ### Task 14: GitHub Action - Main Logic
 
 **Files:**
-- Create: `.github/actions/dma-analyzer/src/main.ts`
-- Create: `.github/actions/dma-analyzer/src/analyzer.ts`
+- Create: `.github/actions/tapa-analyzer/src/main.ts`
+- Create: `.github/actions/tapa-analyzer/src/analyzer.ts`
 
 **Step 1: Create main entry point**
 
-Create `.github/actions/dma-analyzer/src/main.ts`:
+Create `.github/actions/tapa-analyzer/src/main.ts`:
 
 ```typescript
 import * as core from '@actions/core';
@@ -2174,7 +2174,7 @@ run();
 
 **Step 2: Create analyzer module**
 
-Create `.github/actions/dma-analyzer/src/analyzer.ts`:
+Create `.github/actions/tapa-analyzer/src/analyzer.ts`:
 
 ```typescript
 import * as exec from '@actions/exec';
@@ -2283,7 +2283,7 @@ export async function analyzeMigrations(
 
 async function installDMA(): Promise<void> {
   core.info('Installing DMA...');
-  await exec.exec('go', ['install', 'github.com/iamsr/dma/cmd/dma@latest']);
+  await exec.exec('go', ['install', 'github.com/iamsr/tapa/cmd/tapa@latest']);
 }
 
 function getRiskLevel(score: number): string {
@@ -2335,7 +2335,7 @@ function generateSummary(jsonOutput: any): string {
 **Step 3: Commit**
 
 ```bash
-git add .github/actions/dma-analyzer/src/
+git add .github/actions/tapa-analyzer/src/
 git commit -m "feat: add GitHub Action analyzer and summary generation"
 ```
 
@@ -2344,11 +2344,11 @@ git commit -m "feat: add GitHub Action analyzer and summary generation"
 ### Task 15: GitHub Action - PR Comment
 
 **Files:**
-- Create: `.github/actions/dma-analyzer/src/pr-comment.ts`
+- Create: `.github/actions/tapa-analyzer/src/pr-comment.ts`
 
 **Step 1: Implement PR comment logic**
 
-Create `.github/actions/dma-analyzer/src/pr-comment.ts`:
+Create `.github/actions/tapa-analyzer/src/pr-comment.ts`:
 
 ```typescript
 import * as github from '@actions/github';
@@ -2451,7 +2451,7 @@ function formatComment(result: AnalysisResult): string {
   }
 
   comment += '\n---\n';
-  comment += `🤖 Generated by [DMA](https://github.com/iamsr/dma)`;
+  comment += `🤖 Generated by [DMA](https://github.com/iamsr/tapa)`;
 
   return comment;
 }
@@ -2460,7 +2460,7 @@ function formatComment(result: AnalysisResult): string {
 **Step 2: Commit**
 
 ```bash
-git add .github/actions/dma-analyzer/src/pr-comment.ts
+git add .github/actions/tapa-analyzer/src/pr-comment.ts
 git commit -m "feat: add PR comment formatter with recommendations"
 ```
 
@@ -2469,13 +2469,13 @@ git commit -m "feat: add PR comment formatter with recommendations"
 ### Task 16: GitHub Action - Build & Package
 
 **Files:**
-- Modify: `.github/actions/dma-analyzer/package.json`
-- Create: `.github/actions/dma-analyzer/.gitignore`
+- Modify: `.github/actions/tapa-analyzer/package.json`
+- Create: `.github/actions/tapa-analyzer/.gitignore`
 
 **Step 1: Install dependencies and build**
 
 ```bash
-cd .github/actions/dma-analyzer
+cd .github/actions/tapa-analyzer
 npm install
 npm run build
 cd ../../..
@@ -2483,7 +2483,7 @@ cd ../../..
 
 **Step 2: Create .gitignore**
 
-Create `.github/actions/dma-analyzer/.gitignore`:
+Create `.github/actions/tapa-analyzer/.gitignore`:
 
 ```
 node_modules/
@@ -2493,9 +2493,9 @@ lib/
 **Step 3: Commit**
 
 ```bash
-git add .github/actions/dma-analyzer/dist/
-git add .github/actions/dma-analyzer/.gitignore
-git add .github/actions/dma-analyzer/package-lock.json
+git add .github/actions/tapa-analyzer/dist/
+git add .github/actions/tapa-analyzer/.gitignore
+git add .github/actions/tapa-analyzer/package-lock.json
 git commit -m "build: compile and package GitHub Action"
 ```
 
@@ -2534,7 +2534,7 @@ jobs:
           go-version: '1.21'
       
       - name: Analyze migrations
-        uses: ./.github/actions/dma-analyzer
+        uses: ./.github/actions/tapa-analyzer
         with:
           migration-path: 'migrations/'
           db-type: 'postgresql'
@@ -2578,7 +2578,7 @@ jobs:
         with:
           go-version: '1.21'
       
-      - uses: ./.github/actions/dma-analyzer
+      - uses: ./.github/actions/tapa-analyzer
         with:
           migration-path: 'migrations/'
           db-type: 'postgresql'
@@ -2614,7 +2614,7 @@ jobs:
 ### Block high-risk migrations
 
 \`\`\`yaml
-- uses: ./.github/actions/dma-analyzer
+- uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'migrations/'
     fail-on-risk: 'medium'  # Fail if medium or higher
@@ -2624,7 +2624,7 @@ jobs:
 ### With database connection
 
 \`\`\`yaml
-- uses: ./.github/actions/dma-analyzer
+- uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'migrations/'
     db-url: ${{ secrets.DATABASE_URL }}
@@ -2634,7 +2634,7 @@ jobs:
 ### MySQL migrations
 
 \`\`\`yaml
-- uses: ./.github/actions/dma-analyzer
+- uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'db/migrations/'
     db-type: 'mysql'
@@ -2654,19 +2654,19 @@ git commit -m "docs: add GitHub Action workflow and usage documentation"
 ### Task 18: GitLab CI Integration
 
 **Files:**
-- Create: `.gitlab/dma-analyzer.sh`
+- Create: `.gitlab/tapa-analyzer.sh`
 - Create: `docs/gitlab-ci-usage.md`
 
 **Step 1: Create GitLab CI script**
 
-Create `.gitlab/dma-analyzer.sh`:
+Create `.gitlab/tapa-analyzer.sh`:
 
 ```bash
 #!/bin/bash
 set -e
 
 # DMA Migration Analyzer for GitLab CI
-# Usage: ./dma-analyzer.sh <migration-path> [options]
+# Usage: ./tapa-analyzer.sh <migration-path> [options]
 
 MIGRATION_PATH="${1:-migrations/}"
 DB_TYPE="${DMA_DB_TYPE:-postgresql}"
@@ -2682,10 +2682,10 @@ echo ""
 
 # Install DMA
 echo "Installing DMA..."
-go install github.com/iamsr/dma/cmd/dma@latest
+go install github.com/iamsr/tapa/cmd/tapa@latest
 
 # Build command
-CMD="dma analyze $MIGRATION_PATH --format json --db-type $DB_TYPE"
+CMD="tapa analyze $MIGRATION_PATH --format json --db-type $DB_TYPE"
 
 if [ -n "$DB_URL" ]; then
   CMD="$CMD --db $DB_URL"
@@ -2749,7 +2749,7 @@ $(echo "$OUTPUT" | jq -r '
 } {print}')
 
 ---
-🤖 Generated by [DMA](https://github.com/iamsr/dma)
+🤖 Generated by [DMA](https://github.com/iamsr/tapa)
 EOF
 
 echo ""
@@ -2775,7 +2775,7 @@ fi
 Make executable:
 
 ```bash
-chmod +x .gitlab/dma-analyzer.sh
+chmod +x .gitlab/tapa-analyzer.sh
 ```
 
 **Step 2: Create GitLab CI documentation**
@@ -2793,7 +2793,7 @@ Integrate DMA into your GitLab CI pipeline to automatically analyze migrations o
 
 1. **Add the script to your repository:**
 
-Copy `.gitlab/dma-analyzer.sh` to your repository.
+Copy `.gitlab/tapa-analyzer.sh` to your repository.
 
 2. **Update `.gitlab-ci.yml`:**
 
@@ -2807,7 +2807,7 @@ migration-analysis:
   before_script:
     - apt-get update && apt-get install -y jq
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_DB_TYPE: postgresql
     DMA_COMPREHENSIVE: "true"
@@ -2842,7 +2842,7 @@ migration-analysis:
 \`\`\`yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_DB_URL: $DATABASE_URL
     DMA_DB_TYPE: mysql
@@ -2853,7 +2853,7 @@ migration-analysis:
 \`\`\`yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_FAIL_ON_RISK: medium
 \`\`\`
@@ -2863,7 +2863,7 @@ migration-analysis:
 \`\`\`yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh db/schema/migrations/
+    - ./.gitlab/tapa-analyzer.sh db/schema/migrations/
 \`\`\`
 
 ## Viewing Reports
@@ -2924,7 +2924,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-      - uses: ./.github/actions/dma-analyzer
+      - uses: ./.github/actions/tapa-analyzer
         with:
           migration-path: 'test-migrations/'
           db-type: 'postgresql'
@@ -2972,7 +2972,7 @@ export DMA_COMPREHENSIVE=true
 export DMA_FAIL_ON_RISK=high
 
 # Run script
-./.gitlab/dma-analyzer.sh test-migrations/
+./.gitlab/tapa-analyzer.sh test-migrations/
 
 # Verify outputs
 if [ ! -f dma-report.json ]; then
@@ -3017,12 +3017,12 @@ git commit -m "test: add CI/CD integration test scripts"
 
 **Files:**
 - Modify: `README.md`
-- Modify: `cmd/dma/root.go`
+- Modify: `cmd/tapa/root.go`
 - Create: `docs/phase3-changelog.md`
 
 **Step 1: Update version**
 
-Modify `cmd/dma/root.go`:
+Modify `cmd/tapa/root.go`:
 
 ```go
 const version = "0.3.0" // Phase 3: MySQL + CI/CD
@@ -3033,9 +3033,9 @@ const version = "0.3.0" // Phase 3: MySQL + CI/CD
 Modify `README.md`, add MySQL and CI/CD sections:
 
 ```markdown
-# Database Migration Analyzer (DMA)
+# Table Alteration Planning Assistant (DMA)
 
-[![CI](https://github.com/iamsr/dma/workflows/CI/badge.svg)](https://github.com/iamsr/dma/actions)
+[![CI](https://github.com/iamsr/tapa/workflows/CI/badge.svg)](https://github.com/iamsr/tapa/actions)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 Static analysis tool that predicts production impact of database migrations before execution.
@@ -3067,19 +3067,19 @@ Static analysis tool that predicts production impact of database migrations befo
 
 ```bash
 # PostgreSQL
-dma analyze migrations/ --db postgres://localhost/mydb --comprehensive
+tapa analyze migrations/ --db postgres://localhost/mydb --comprehensive
 
 # MySQL with pt-osc recommendations
-dma analyze migrations/ --db mysql://root@localhost/mydb --db-type mysql
+tapa analyze migrations/ --db mysql://root@localhost/mydb --db-type mysql
 
 # Dry run (no database)
-dma analyze migration.sql --dry-run --db-type postgresql
+tapa analyze migration.sql --dry-run --db-type postgresql
 ```
 
 ### GitHub Actions
 
 ```yaml
-- uses: ./.github/actions/dma-analyzer
+- uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'migrations/'
     fail-on-risk: 'high'
@@ -3091,7 +3091,7 @@ dma analyze migration.sql --dry-run --db-type postgresql
 ```yaml
 migration-analysis:
   script:
-    - ./.gitlab/dma-analyzer.sh migrations/
+    - ./.gitlab/tapa-analyzer.sh migrations/
   variables:
     DMA_FAIL_ON_RISK: high
 ```
@@ -3200,7 +3200,7 @@ Potential future enhancements:
 **Step 4: Commit**
 
 ```bash
-git add README.md cmd/dma/root.go docs/phase3-changelog.md
+git add README.md cmd/tapa/root.go docs/phase3-changelog.md
 git commit -m "docs: update README and version to 0.3.0 for Phase 3 release"
 ```
 
@@ -3276,7 +3276,7 @@ func TestE2E_Comprehensive_Analysis(t *testing.T) {
 
 ```bash
 cd /Users/iamsr/Projects/Devss/tapa/.worktrees/phase3-implementation
-go build -o dma ./cmd/dma
+go build -o dma ./cmd/tapa
 cd test
 go test -v
 cd ..

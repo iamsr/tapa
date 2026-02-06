@@ -1,5 +1,5 @@
-# DMA (Database Migration Analyzer) Configuration Example
-# Copy this file to .dma.yml and customize for your environment
+# DMA (Table Alteration Planning Assistant) Configuration Example
+# Copy this file to .tapa.yml and customize for your environment
 
 database:
   # Database connection URL

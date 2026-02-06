@@ -34,7 +34,7 @@ export DMA_REPORT_FILE="dma-report.json"
 export DMA_MARKDOWN_FILE="dma-report.md"
 
 echo "🚀 Running GitLab CI script..."
-bash .gitlab/dma-analyzer.sh
+bash .gitlab/tapa-analyzer.sh
 
 echo "✅ GitLab CI script completed!"
 echo ""

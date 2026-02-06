@@ -3,6 +3,8 @@
 
 # Go build artifacts
 bin/
+tapa
+dma
 *.exe
 *.exe~
 *.dll
@@ -14,6 +16,8 @@ bin/
 # Go coverage files
 coverage.txt
 coverage.html
+*.coverprofile
+coverage.out
 
 # IDE and editor files
 .vscode/
@@ -25,3 +29,7 @@ coverage.html
 # OS files
 .DS_Store
 Thumbs.db
+
+# E2E test artifacts
+e2e/.env
+e2e/test_output.log

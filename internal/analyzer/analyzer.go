@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	mysqlanalyzer "github.com/iamsr/dma/internal/analyzer/mysql"
-	postgresanalyzer "github.com/iamsr/dma/internal/analyzer/postgres"
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	mysqlanalyzer "github.com/iamsr/tapa/internal/analyzer/mysql"
+	postgresanalyzer "github.com/iamsr/tapa/internal/analyzer/postgres"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // Analyzer analyzes database operations for production impact

@@ -157,12 +157,12 @@ type AlternativeStep struct {
 
 ### New Flags
 ```bash
-dma analyze migration.sql --show-dependencies
-dma analyze migration.sql --show-time-breakdown
-dma analyze migration.sql --suggest-batches
-dma analyze migration.sql --show-alternatives
-dma analyze migration.sql --generate-alternatives --output-dir ./safe-migrations/
-dma analyze migration.sql --comprehensive  # All features
+tapa analyze migration.sql --show-dependencies
+tapa analyze migration.sql --show-time-breakdown
+tapa analyze migration.sql --suggest-batches
+tapa analyze migration.sql --show-alternatives
+tapa analyze migration.sql --generate-alternatives --output-dir ./safe-migrations/
+tapa analyze migration.sql --comprehensive  # All features
 ```
 
 ### Configuration

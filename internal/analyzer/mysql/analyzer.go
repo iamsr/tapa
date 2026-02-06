@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iamsr/dma/internal/db"
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/internal/db"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 // Analyzer analyzes MySQL operations for production impact

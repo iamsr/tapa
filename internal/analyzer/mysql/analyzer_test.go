@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestAnalyzer_AddColumn_LockDetection(t *testing.T) {

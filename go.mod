@@ -1,4 +1,4 @@
-module github.com/iamsr/dma
+module github.com/iamsr/tapa
 
 go 1.25.6
 

@@ -20,7 +20,7 @@ jobs:
           go-version: '1.21'
       
       - name: Analyze migrations
-        uses: ./.github/actions/dma-analyzer
+        uses: ./.github/actions/tapa-analyzer
         with:
           migration-path: 'migrations/'
           db-type: 'postgresql'

@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	_ "github.com/go-sql-driver/mysql" // MySQL driver
-	"github.com/iamsr/dma/internal/db"
+	"github.com/iamsr/tapa/internal/db"
 )
 
 // Introspector queries MySQL database for schema information

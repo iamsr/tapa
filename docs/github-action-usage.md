@@ -33,7 +33,7 @@ jobs:
           go-version: '1.21'
       
       - name: Analyze migrations
-        uses: ./.github/actions/dma-analyzer
+        uses: ./.github/actions/tapa-analyzer
         with:
           migration-path: 'migrations/'
           db-type: 'postgresql'
@@ -80,7 +80,7 @@ permissions:
 
 ```yaml
 - name: Analyze migrations
-  uses: ./.github/actions/dma-analyzer
+  uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'db/migrations/'
     db-type: 'postgresql'
@@ -94,7 +94,7 @@ This will fail the workflow if any migration contains operations with `high` or 
 
 ```yaml
 - name: Analyze migrations
-  uses: ./.github/actions/dma-analyzer
+  uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'migrations/'
     db-url: ${{ secrets.DATABASE_URL }}
@@ -109,7 +109,7 @@ Connect to a real database for accurate table statistics and lock analysis.
 
 ```yaml
 - name: Analyze migrations
-  uses: ./.github/actions/dma-analyzer
+  uses: ./.github/actions/tapa-analyzer
   with:
     migration-path: 'db/migrations/'
     db-type: 'mysql'

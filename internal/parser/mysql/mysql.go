@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 

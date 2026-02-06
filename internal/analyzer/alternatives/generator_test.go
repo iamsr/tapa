@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iamsr/dma/pkg/models"
+	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestGetAlternativeGenerator(t *testing.T) {
