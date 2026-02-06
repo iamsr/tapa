@@ -80,8 +80,15 @@ func printOperationsTable(w io.Writer, operations []*models.Operation) {
 	for i, op := range operations {
 		fmt.Fprintf(w, "\n%d. %s on table '%s'\n", i+1, op.Type, op.TableName)
 		fmt.Fprintf(w, "   SQL: %s\n", truncate(op.SQL, 70))
-		fmt.Fprintf(w, "   Lock Type: %s (Duration: %dms)\n", op.LockType, op.LockDurationMS)
-		fmt.Fprintf(w, "   Risk Score: %d/100 (%s)\n", op.RiskScore, op.RiskLevel())
+
+		// Apply color to lock type
+		lockTypeStr := Colorize(string(op.LockType), LockTypeColor(op.LockType))
+		fmt.Fprintf(w, "   Lock Type: %s (Duration: %dms)\n", lockTypeStr, op.LockDurationMS)
+
+		// Apply color to risk score
+		riskScoreStr := Colorize(fmt.Sprintf("%d/100", op.RiskScore), RiskColor(op.RiskScore))
+		fmt.Fprintf(w, "   Risk Score: %s (%s)\n", riskScoreStr, op.RiskLevel())
+
 		fmt.Fprintf(w, "   Estimated Time: %.2fs\n", op.EstimatedTimeSeconds)
 		fmt.Fprintf(w, "   Requires Rewrite: %v\n", op.RequiresRewrite)
 		fmt.Fprintf(w, "   Backward Compatible: %v\n", op.BackwardCompatible)
