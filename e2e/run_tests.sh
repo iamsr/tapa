@@ -18,7 +18,7 @@ echo -e "${YELLOW}========================================${NC}"
 echo ""
 
 # Build TAPA binary
-echo -e "${YELLOW}[1/6] Building TAPA binary...${NC}"
+echo -e "${YELLOW}[1/7] Building TAPA binary...${NC}"
 cd "$PROJECT_ROOT"
 go build -o "$PROJECT_ROOT/tapa" ./cmd/tapa
 if [ $? -ne 0 ]; then
@@ -29,7 +29,7 @@ echo -e "${GREEN}✓ TAPA binary built successfully${NC}"
 echo ""
 
 # Start Docker containers
-echo -e "${YELLOW}[2/6] Starting Docker containers...${NC}"
+echo -e "${YELLOW}[2/7] Starting Docker containers...${NC}"
 cd "$E2E_DIR"
 docker-compose down -v > /dev/null 2>&1 || true
 docker-compose up -d
@@ -41,7 +41,7 @@ echo -e "${GREEN}✓ Docker containers started${NC}"
 echo ""
 
 # Wait for databases to be ready
-echo -e "${YELLOW}[3/6] Waiting for databases to be ready...${NC}"
+echo -e "${YELLOW}[3/7] Waiting for databases to be ready...${NC}"
 echo -n "  Waiting for PostgreSQL"
 for i in {1..30}; do
     if docker exec tapa-e2e-postgres pg_isready -U testuser -d testdb > /dev/null 2>&1; then
@@ -76,7 +76,7 @@ done
 echo ""
 
 # Run PostgreSQL E2E test
-echo -e "${YELLOW}[4/6] Running PostgreSQL E2E test...${NC}"
+echo -e "${YELLOW}[4/7] Running PostgreSQL E2E test...${NC}"
 bash "$E2E_DIR/scripts/test_postgres.sh"
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ PostgreSQL E2E test failed${NC}"
@@ -87,7 +87,7 @@ echo -e "${GREEN}✓ PostgreSQL E2E test passed${NC}"
 echo ""
 
 # Run MySQL E2E test
-echo -e "${YELLOW}[5/6] Running MySQL E2E test...${NC}"
+echo -e "${YELLOW}[5/7] Running MySQL E2E test...${NC}"
 bash "$E2E_DIR/scripts/test_mysql.sh"
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ MySQL E2E test failed${NC}"
@@ -97,8 +97,19 @@ fi
 echo -e "${GREEN}✓ MySQL E2E test passed${NC}"
 echo ""
 
+# Run Batch command E2E test
+echo -e "${YELLOW}[6/7] Running Batch command E2E test...${NC}"
+bash "$E2E_DIR/scripts/test_batch.sh"
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Batch command E2E test failed${NC}"
+    docker-compose down -v
+    exit 1
+fi
+echo -e "${GREEN}✓ Batch command E2E test passed${NC}"
+echo ""
+
 # Cleanup
-echo -e "${YELLOW}[6/6] Cleaning up...${NC}"
+echo -e "${YELLOW}[7/7] Cleaning up...${NC}"
 docker-compose down -v > /dev/null 2>&1
 echo -e "${GREEN}✓ Cleanup complete${NC}"
 echo ""
