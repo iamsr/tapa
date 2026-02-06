@@ -44,15 +44,30 @@ type BatchingStrategy struct {
 	OriginalMigration string           `json:"original_migration"`
 	Batches           []MigrationBatch `json:"batches"`
 	TotalBatches      int              `json:"total_batches"`
+	TotalOperations   int              `json:"total_operations"`
+	TotalTimeSeconds  float64          `json:"total_time_seconds"`
+	MaxRiskLevel      RiskLevel        `json:"max_risk_level"`
 	Recommendations   []string         `json:"recommendations"`
 }
 
 // CalculateMetrics computes total batches and calculates metrics for each batch
 func (bs *BatchingStrategy) CalculateMetrics() {
 	bs.TotalBatches = len(bs.Batches)
+	bs.TotalOperations = 0
+	bs.TotalTimeSeconds = 0
+	bs.MaxRiskLevel = RiskLevelLow
 
 	// Calculate metrics for each batch
 	for i := range bs.Batches {
 		bs.Batches[i].CalculateMetrics()
+
+		// Aggregate totals
+		bs.TotalOperations += len(bs.Batches[i].Operations)
+		bs.TotalTimeSeconds += bs.Batches[i].TotalTimeSeconds
+
+		// Track max risk level
+		if bs.Batches[i].RiskLevel > bs.MaxRiskLevel {
+			bs.MaxRiskLevel = bs.Batches[i].RiskLevel
+		}
 	}
 }

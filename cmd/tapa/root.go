@@ -25,6 +25,7 @@ table rewrites, index build times, and backward compatibility.`,
 
 	// Add subcommands
 	cmd.AddCommand(newAnalyzeCommand())
+	cmd.AddCommand(newBatchCommand())
 
 	return cmd
 }

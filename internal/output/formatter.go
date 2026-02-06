@@ -142,6 +142,72 @@ func formatTableRow(columns []string) string {
 	return row
 }
 
+// FormatBatching outputs the batching result in the specified format
+func FormatBatching(w io.Writer, result *models.BatchResult, format string) error {
+	switch format {
+	case "json":
+		return formatBatchingJSON(w, result)
+	case "yaml":
+		return formatBatchingYAML(w, result)
+	default:
+		return formatBatchingTable(w, result)
+	}
+}
+
+func formatBatchingTable(w io.Writer, result *models.BatchResult) error {
+	fmt.Fprintf(w, "\nMigration Batching Strategy\n")
+	fmt.Fprintf(w, "================================================================================\n\n")
+
+	strategy := result.Strategy
+
+	fmt.Fprintf(w, "Summary:\n")
+	fmt.Fprintf(w, "  Total Operations: %d\n", strategy.TotalOperations)
+	fmt.Fprintf(w, "  Total Batches: %d\n", strategy.TotalBatches)
+	fmt.Fprintf(w, "  Estimated Total Time: %.2fs\n", strategy.TotalTimeSeconds)
+	fmt.Fprintf(w, "  Max Risk Level: %s\n", strategy.MaxRiskLevel)
+	fmt.Fprintf(w, "\n")
+
+	for _, batch := range strategy.Batches {
+		fmt.Fprintf(w, "Batch #%d (%s):\n", batch.BatchNumber, batch.RiskLevel)
+		fmt.Fprintf(w, "  Operations: %d\n", len(batch.Operations))
+		fmt.Fprintf(w, "  Risk Score: %d/100\n", batch.MaxRiskScore)
+		fmt.Fprintf(w, "  Estimated Time: %.2fs\n", batch.TotalTimeSeconds)
+		fmt.Fprintf(w, "  Parallel Execution: %v\n", batch.CanRunInParallel)
+
+		if len(batch.Prerequisites) > 0 {
+			fmt.Fprintf(w, "  Prerequisites: Batches %v\n", batch.Prerequisites)
+		}
+
+		fmt.Fprintf(w, "  Rationale: %s\n", batch.Rationale)
+		fmt.Fprintf(w, "\n  Operations:\n")
+
+		for i, op := range batch.Operations {
+			fmt.Fprintf(w, "    %d. %s on %s (Risk: %d)\n", i+1, op.Type, op.TableName, op.RiskScore)
+		}
+		fmt.Fprintf(w, "\n")
+	}
+
+	if len(strategy.Recommendations) > 0 {
+		fmt.Fprintf(w, "Recommendations:\n")
+		for _, rec := range strategy.Recommendations {
+			fmt.Fprintf(w, "  %s\n", rec)
+		}
+	}
+
+	return nil
+}
+
+func formatBatchingJSON(w io.Writer, result *models.BatchResult) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+func formatBatchingYAML(w io.Writer, result *models.BatchResult) error {
+	encoder := yaml.NewEncoder(w)
+	return encoder.Encode(result)
+}
+
 // Helper functions
 
 func padRight(s string, length int) string {
