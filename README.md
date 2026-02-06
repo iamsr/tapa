@@ -108,6 +108,17 @@ Shows:
 - Operation counts
 - Execution time
 
+### Color-Coded Output
+
+TAPA automatically displays risk levels and lock types in color for better visibility:
+- **Risk Levels:** Green (LOW), Blue (MEDIUM), Yellow (HIGH), Red (CRITICAL)
+- **Lock Types:** Color-coded based on severity
+
+Disable colors if needed:
+```bash
+NO_COLOR=1 tapa analyze migrations/
+```
+
 ### CI/CD Integration
 
 **GitHub Actions:**
