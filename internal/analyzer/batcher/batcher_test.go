@@ -20,10 +20,9 @@ func TestGetMigrationBatcher(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "mysql not implemented",
+			name:        "mysql returns batcher",
 			dbType:      "mysql",
-			expectError: true,
-			errorMsg:    "MySQL batcher not yet implemented",
+			expectError: false,
 		},
 		{
 			name:        "unsupported database type",
