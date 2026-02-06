@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/iamsr/tapa/internal/analyzer/alternatives"
+	"github.com/iamsr/tapa/internal/analyzer/batcher"
 	"github.com/iamsr/tapa/internal/analyzer/dependencies"
 	"github.com/iamsr/tapa/internal/analyzer/estimator"
 	"github.com/iamsr/tapa/internal/db"
@@ -23,6 +24,7 @@ type Analyzer struct {
 	dependencyAnalyzer   dependencies.DependencyAnalyzer
 	timeEstimator        estimator.TimeEstimator
 	alternativeGenerator alternatives.AlternativeGenerator
+	batcher              batcher.MigrationBatcher
 }
 
 // NewAnalyzer creates a new PostgreSQL analyzer
@@ -37,6 +39,7 @@ func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFa
 	analyzer.dependencyAnalyzer, _ = dependencies.GetDependencyAnalyzer("postgresql", introspector)
 	analyzer.timeEstimator, _ = estimator.GetTimeEstimator("postgresql", introspector, diskThroughputMBps, rewriteFactor)
 	analyzer.alternativeGenerator, _ = alternatives.GetAlternativeGenerator("postgresql")
+	analyzer.batcher, _ = batcher.GetMigrationBatcher("postgresql")
 
 	return analyzer
 }
@@ -397,4 +400,13 @@ func (a *Analyzer) AnalyzeWithEnhancements(ctx context.Context, op *models.Opera
 	}
 
 	return nil
+}
+
+// BatchOperations generates a batching strategy for multiple operations
+func (a *Analyzer) BatchOperations(ops []*models.Operation) (*models.BatchingStrategy, error) {
+	if a.batcher == nil {
+		return nil, fmt.Errorf("batcher not initialized")
+	}
+
+	return a.batcher.GenerateBatches(ops)
 }

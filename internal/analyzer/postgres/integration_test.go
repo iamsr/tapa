@@ -180,3 +180,60 @@ func TestAnalyze_BackwardCompatibility(t *testing.T) {
 		t.Error("Expected Alternatives to be nil after basic Analyze()")
 	}
 }
+
+// TestAnalyzer_BatchOperations tests the batching functionality
+func TestAnalyzer_BatchOperations(t *testing.T) {
+	analyzer := NewAnalyzer(nil, 100, 2.0)
+
+	ops := []*models.Operation{
+		{
+			Type:      models.OperationTypeAddColumn,
+			TableName: "users",
+			SQL:       "ALTER TABLE users ADD COLUMN email VARCHAR(255);",
+			RiskScore: 10,
+		},
+		{
+			Type:      models.OperationTypeAddColumn,
+			TableName: "users",
+			SQL:       "ALTER TABLE users ADD COLUMN status VARCHAR(50) DEFAULT 'active';",
+			RiskScore: 80,
+		},
+		{
+			Type:      models.OperationTypeCreateIndex,
+			TableName: "users",
+			SQL:       "CREATE INDEX idx_email ON users(email);",
+			RiskScore: 10,
+		},
+	}
+
+	strategy, err := analyzer.BatchOperations(ops)
+	if err != nil {
+		t.Fatalf("BatchOperations failed: %v", err)
+	}
+
+	if strategy.TotalBatches < 2 {
+		t.Errorf("Expected at least 2 batches (low-risk + high-risk), got %d", strategy.TotalBatches)
+	}
+
+	// First batch should have low-risk operations
+	if len(strategy.Batches) > 0 {
+		firstBatch := strategy.Batches[0]
+		if firstBatch.RiskLevel != models.RiskLevelLow {
+			t.Errorf("Expected first batch to be low risk, got %s", firstBatch.RiskLevel)
+		}
+		if !firstBatch.CanRunInParallel {
+			t.Error("Expected low-risk batch to allow parallel execution")
+		}
+	}
+
+	// Last batch should have the high-risk operation
+	if len(strategy.Batches) > 1 {
+		lastBatch := strategy.Batches[len(strategy.Batches)-1]
+		if lastBatch.RiskLevel != models.RiskLevelCritical && lastBatch.RiskLevel != models.RiskLevelHigh {
+			t.Errorf("Expected last batch to be high/critical risk, got %s", lastBatch.RiskLevel)
+		}
+		if len(lastBatch.Operations) != 1 {
+			t.Errorf("Expected 1 operation in high-risk batch, got %d", len(lastBatch.Operations))
+		}
+	}
+}
