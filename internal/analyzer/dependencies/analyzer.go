@@ -21,7 +21,7 @@ func GetDependencyAnalyzer(dbType string, introspector db.Introspector) (Depende
 	case "postgresql":
 		return newPostgresDependencyAnalyzer(introspector), nil
 	case "mysql":
-		return nil, fmt.Errorf("MySQL dependency analyzer not yet implemented")
+		return NewMySQLDependencyAnalyzer(introspector), nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
@@ -132,6 +132,69 @@ func (a *postgresDependencyAnalyzer) findIndexesOnTable(ctx context.Context, tab
 			ImpactLevel: models.ImpactBreaks,
 			Description: fmt.Sprintf("Index %s will be dropped with table", idx.IndexName),
 		})
+	}
+
+	return deps, nil
+}
+
+// MySQLDependencyAnalyzer finds dependencies in MySQL
+type MySQLDependencyAnalyzer struct {
+	introspector db.Introspector
+}
+
+// NewMySQLDependencyAnalyzer creates a MySQL dependency analyzer
+func NewMySQLDependencyAnalyzer(introspector db.Introspector) *MySQLDependencyAnalyzer {
+	return &MySQLDependencyAnalyzer{introspector: introspector}
+}
+
+// FindDependencies finds what breaks when operation executes
+func (a *MySQLDependencyAnalyzer) FindDependencies(ctx context.Context, op *models.Operation) ([]models.Dependency, error) {
+	// MySQL dependency detection uses information_schema
+	// Similar to PostgreSQL but queries different tables
+
+	if a.introspector == nil {
+		return []models.Dependency{}, nil
+	}
+
+	switch op.Type {
+	case models.OperationTypeDropTable, models.OperationTypeDropColumn:
+		return a.findIndexDependencies(ctx, op)
+	default:
+		return []models.Dependency{}, nil
+	}
+}
+
+// findIndexDependencies finds indexes that will break
+func (a *MySQLDependencyAnalyzer) findIndexDependencies(ctx context.Context, op *models.Operation) ([]models.Dependency, error) {
+	stats, err := a.introspector.GetTableStats(ctx, op.TableName)
+	if err != nil {
+		return nil, err
+	}
+
+	var deps []models.Dependency
+
+	for _, idx := range stats.Indexes {
+		if op.Type == models.OperationTypeDropColumn {
+			// Check if index uses the column
+			for _, col := range idx.Columns {
+				if col == op.ColumnName {
+					deps = append(deps, models.Dependency{
+						Type:        models.DependencyTypeIndex,
+						Name:        idx.IndexName,
+						ImpactLevel: models.ImpactBreaks,
+						Description: fmt.Sprintf("Index '%s' depends on column '%s'", idx.IndexName, op.ColumnName),
+					})
+					break
+				}
+			}
+		} else if op.Type == models.OperationTypeDropTable {
+			deps = append(deps, models.Dependency{
+				Type:        models.DependencyTypeIndex,
+				Name:        idx.IndexName,
+				ImpactLevel: models.ImpactBreaks,
+				Description: fmt.Sprintf("Index '%s' will be dropped with table", idx.IndexName),
+			})
+		}
 	}
 
 	return deps, nil

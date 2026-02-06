@@ -34,9 +34,13 @@ func TestGetAlternativeGenerator(t *testing.T) {
 			},
 		},
 		{
-			name:    "mysql returns error - not supported",
+			name:    "mysql returns mysql generator",
 			dbType:  "mysql",
-			wantErr: true,
+			wantErr: false,
+			checkType: func(g AlternativeGenerator) bool {
+				_, ok := g.(*MySQLGenerator)
+				return ok
+			},
 		},
 		{
 			name:    "unsupported database returns error",

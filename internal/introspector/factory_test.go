@@ -16,7 +16,7 @@ func TestGetIntrospector(t *testing.T) {
 		errorContains string
 	}{
 		{"postgresql", "postgresql", "postgres://localhost/test", false, ""},
-		{"mysql", "mysql", "mysql://localhost/test", true, "not yet implemented"},
+		{"mysql", "mysql", "mysql://localhost/test", false, ""},
 		{"unsupported", "oracle", "oracle://localhost/test", true, "unsupported"},
 	}
 

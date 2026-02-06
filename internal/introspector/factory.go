@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/yourusername/dma/internal/db"
+	"github.com/yourusername/dma/internal/db/mysql"
 	"github.com/yourusername/dma/internal/db/postgres"
 )
 
@@ -13,7 +14,7 @@ func GetIntrospector(dbType, connURL string) (db.Introspector, error) {
 	case "postgresql":
 		return postgres.NewIntrospector(connURL), nil
 	case "mysql":
-		return nil, fmt.Errorf("MySQL introspector not yet implemented")
+		return mysql.NewIntrospector(connURL), nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}

@@ -120,3 +120,36 @@ func TestAnalyzeCommand_DryRun(t *testing.T) {
 	// Should not fail in dry-run mode without database
 	assert.NoError(t, err)
 }
+
+func TestAnalyzeCommand_MySQL_DryRun(t *testing.T) {
+	// Create temp directory for migration file
+	tmpDir := t.TempDir()
+	sqlFile := filepath.Join(tmpDir, "mysql_migration.sql")
+
+	// Create test migration file with MySQL SQL
+	sqlContent := `-- Test MySQL migration
+ALTER TABLE users ADD COLUMN email VARCHAR(255);
+CREATE INDEX idx_email ON users(email) ALGORITHM=INPLACE;
+`
+	err := os.WriteFile(sqlFile, []byte(sqlContent), 0644)
+	require.NoError(t, err)
+
+	// Build analyze command with MySQL-specific args
+	cmd := newAnalyzeCommand()
+	cmd.SetArgs([]string{
+		sqlFile,
+		"--dry-run",
+		"--db-type", "mysql",
+	})
+
+	// Execute command
+	err = cmd.Execute()
+
+	// Verify success (no error)
+	// This verifies the full CLI workflow:
+	// - SQL file is read
+	// - MySQL parser is used (--db-type mysql)
+	// - Analysis is performed
+	// - Output is generated
+	assert.NoError(t, err, "MySQL CLI analysis should complete without error")
+}

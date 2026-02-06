@@ -40,7 +40,7 @@ func TestGetAnalyzer(t *testing.T) {
 		wantErr bool
 	}{
 		{"postgresql", "postgresql", false},
-		{"mysql not implemented", "mysql", true},
+		{"mysql", "mysql", false},
 		{"unsupported", "oracle", true},
 	}
 
