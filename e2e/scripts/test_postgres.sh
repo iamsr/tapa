@@ -57,12 +57,28 @@ if [ "$OPERATION_COUNT" -lt 3 ]; then
 fi
 echo -e "${GREEN}    ✓ Database connection analysis successful${NC}"
 
-# Test 3: Comprehensive analysis
-echo -e "${YELLOW}  Test 3: Comprehensive analysis${NC}"
+# Test 3: Comprehensive analysis (Phase 2 features)
+echo -e "${YELLOW}  Test 3: Comprehensive analysis (Phase 2 features)${NC}"
 OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --db "$PG_URL" --comprehensive --format json 2>&1)
 if [ $? -ne 0 ]; then
     echo -e "${RED}    ✗ Failed: $OUTPUT${NC}"
     exit 1
+fi
+
+# Check for Phase 2 features in output
+HAS_TIME_BREAKDOWN=$(echo "$OUTPUT" | jq '[.Migrations[].Operations[] | select(.TimeBreakdown != null)] | length')
+if [ "$HAS_TIME_BREAKDOWN" -lt 1 ]; then
+    echo -e "${YELLOW}    ⚠ Note: No time breakdown detected${NC}"
+else
+    echo -e "${GREEN}    ✓ Time breakdown present in $HAS_TIME_BREAKDOWN operations${NC}"
+fi
+
+# Check for alternatives
+HAS_ALTERNATIVES=$(echo "$OUTPUT" | jq '[.Migrations[].Operations[] | select(.Alternatives != null and (.Alternatives | length) > 0)] | length')
+if [ "$HAS_ALTERNATIVES" -lt 1 ]; then
+    echo -e "${YELLOW}    ⚠ Note: No alternatives generated (may be low risk operations)${NC}"
+else
+    echo -e "${GREEN}    ✓ Alternatives generated for $HAS_ALTERNATIVES operations${NC}"
 fi
 echo -e "${GREEN}    ✓ Comprehensive analysis successful${NC}"
 
