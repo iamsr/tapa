@@ -29,6 +29,31 @@ func TestParser_Parse_CreateTable(t *testing.T) {
 	}
 }
 
+func TestParser_Parse_AddColumn(t *testing.T) {
+	parser := NewParser()
+	sql := "ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT 'unknown';"
+
+	ops, err := parser.Parse(sql)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(ops) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	}
+
+	op := ops[0]
+	if op.Type != models.OperationTypeAddColumn {
+		t.Errorf("Expected ADD_COLUMN, got %s", op.Type)
+	}
+	if op.TableName != "users" {
+		t.Errorf("Expected table 'users', got '%s'", op.TableName)
+	}
+	if op.ColumnName != "email" {
+		t.Errorf("Expected column 'email', got '%s'", op.ColumnName)
+	}
+}
+
 func TestParser_ParseFile_MultipleStatements(t *testing.T) {
 	parser := NewParser()
 

@@ -34,6 +34,23 @@ func (p *Parser) Parse(sql string) ([]*models.Operation, error) {
 			TableName: stmt.Table.Name.String(),
 		}
 		operations = append(operations, op)
+	case *sqlparser.AlterTable:
+		tableName := stmt.Table.Name.String()
+
+		for _, option := range stmt.AlterOptions {
+			switch opt := option.(type) {
+			case *sqlparser.AddColumns:
+				for _, col := range opt.Columns {
+					op := &models.Operation{
+						SQL:        sql,
+						Type:       models.OperationTypeAddColumn,
+						TableName:  tableName,
+						ColumnName: col.Name.String(),
+					}
+					operations = append(operations, op)
+				}
+			}
+		}
 	default:
 		// Other statement types handled in subsequent tasks
 	}

@@ -44,6 +44,7 @@ type Operation struct {
 	SQL                  string
 	Type                 OperationType
 	TableName            string
+	ColumnName           string
 	LockType             LockType
 	LockDurationMS       int64
 	RequiresRewrite      bool
