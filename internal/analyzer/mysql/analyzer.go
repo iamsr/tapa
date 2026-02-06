@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/iamsr/tapa/internal/analyzer/alternatives"
+	"github.com/iamsr/tapa/internal/analyzer/batcher"
 	"github.com/iamsr/tapa/internal/analyzer/dependencies"
 	"github.com/iamsr/tapa/internal/analyzer/estimator"
 	"github.com/iamsr/tapa/internal/db"
@@ -24,6 +25,7 @@ type Analyzer struct {
 	dependencyAnalyzer   dependencies.DependencyAnalyzer
 	timeEstimator        estimator.TimeEstimator
 	alternativeGenerator alternatives.AlternativeGenerator
+	batcher              batcher.MigrationBatcher
 }
 
 // NewAnalyzer creates a new MySQL analyzer
@@ -38,6 +40,9 @@ func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFa
 	analyzer.dependencyAnalyzer, _ = dependencies.GetDependencyAnalyzer("mysql", introspector)
 	analyzer.timeEstimator, _ = estimator.GetTimeEstimator("mysql", introspector, diskThroughputMBps, rewriteFactor)
 	analyzer.alternativeGenerator, _ = alternatives.GetAlternativeGenerator("mysql")
+
+	// Initialize batcher
+	analyzer.batcher, _ = batcher.GetMigrationBatcher("mysql")
 
 	return analyzer
 }
@@ -454,6 +459,15 @@ func (a *Analyzer) generateRecommendations(op *models.Operation, stats *db.Table
 		op.Recommendations = append(op.Recommendations,
 			"For tables >5GB, strongly recommend pt-online-schema-change or gh-ost for zero-downtime migrations")
 	}
+}
+
+// BatchOperations generates a batching strategy for multiple operations
+func (a *Analyzer) BatchOperations(ops []*models.Operation) (*models.BatchingStrategy, error) {
+	if a.batcher == nil {
+		return nil, fmt.Errorf("batcher not initialized")
+	}
+
+	return a.batcher.GenerateBatches(ops)
 }
 
 // AnalysisOptions controls which Phase 2 features are enabled
