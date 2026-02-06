@@ -18,7 +18,7 @@ func TestGetTimeEstimator(t *testing.T) {
 		wantErr bool
 	}{
 		{"postgresql", "postgresql", false},
-		{"mysql", "mysql", true},
+		{"mysql", "mysql", false},
 		{"unsupported", "oracle", true},
 	}
 
