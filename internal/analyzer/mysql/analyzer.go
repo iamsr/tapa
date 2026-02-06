@@ -95,7 +95,7 @@ func (a *Analyzer) Analyze(ctx context.Context, op *models.Operation) error {
 
 // detectAlgorithm extracts ALGORITHM clause from SQL (case-insensitive)
 func (a *Analyzer) detectAlgorithm(sql string) string {
-	re := regexp.MustCompile(`(?i)ALGORITHM\s*=\s*(DEFAULT|INPLACE|COPY|INSTANT)`)
+	re := regexp.MustCompile(`(?i)ALGORITHM\s*=\s*['"]?(DEFAULT|INPLACE|COPY|INSTANT)['"]?`)
 	matches := re.FindStringSubmatch(sql)
 	if len(matches) > 1 {
 		return strings.ToUpper(matches[1])
@@ -105,7 +105,7 @@ func (a *Analyzer) detectAlgorithm(sql string) string {
 
 // detectLock extracts LOCK clause from SQL (case-insensitive)
 func (a *Analyzer) detectLock(sql string) string {
-	re := regexp.MustCompile(`(?i)LOCK\s*=\s*(DEFAULT|NONE|SHARED|EXCLUSIVE)`)
+	re := regexp.MustCompile(`(?i)LOCK\s*=\s*['"]?(DEFAULT|NONE|SHARED|EXCLUSIVE)['"]?`)
 	matches := re.FindStringSubmatch(sql)
 	if len(matches) > 1 {
 		return strings.ToUpper(matches[1])
@@ -118,7 +118,7 @@ func (a *Analyzer) analyzeAddColumn(op *models.Operation, algorithm, lockClause 
 	sqlLower := strings.ToLower(op.SQL)
 
 	// Check if it has DEFAULT value
-	hasDefault := strings.Contains(sqlLower, "default")
+	hasDefault := regexp.MustCompile(`\bdefault\s`).MatchString(sqlLower)
 
 	if hasDefault {
 		// ADD COLUMN with DEFAULT requires COPY in MySQL 5.7
@@ -404,7 +404,7 @@ func (a *Analyzer) generateRecommendations(op *models.Operation, stats *db.Table
 	}
 
 	// Add risk-based recommendations
-	if op.RiskScore >= 75 {
+	if op.RiskScore >= 76 {
 		op.Recommendations = append(op.Recommendations,
 			"CRITICAL RISK: Consider performing this operation during maintenance window")
 	} else if op.RiskScore >= 51 {
