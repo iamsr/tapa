@@ -9,8 +9,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-E2E_DIR="$PROJECT_ROOT/e2e"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+E2E_DIR="$PROJECT_ROOT/tests/e2e"
 TAPA_BIN="$PROJECT_ROOT/tapa"
 
 # MySQL connection  

@@ -11,6 +11,7 @@ A static analysis tool that predicts the production impact of database migration
 ## Features
 
 ### Migration Analysis
+
 - **Lock Detection**: Predicts lock types (ACCESS EXCLUSIVE, SHARE, etc.) and durations
 - **Risk Scoring**: Calculates risk scores (0-100) with categorization (LOW, MEDIUM, HIGH, CRITICAL)
 - **Time Estimation**: Estimates execution time including table rewrites and index builds
@@ -19,12 +20,14 @@ A static analysis tool that predicts the production impact of database migration
 - **Migration Batching**: Groups operations by risk for safer deployment
 
 ### Database Support
+
 - **PostgreSQL**: Full DDL parsing with pg_query, supports CONCURRENTLY operations
 - **MySQL**: Native vitess parser with ALGORITHM/LOCK clause detection
 - **pt-online-schema-change**: Automatic command generation for high-risk MySQL operations
 - **Schema Introspection**: Queries live database metadata for accurate analysis
 
 ### CI/CD Integration
+
 - **GitHub Actions**: Automatic PR analysis with risk-based blocking and comments
 - **GitLab CI**: Pipeline integration with JSON and Markdown reports
 - **JSON Output**: Machine-readable format for custom automation workflows
@@ -40,6 +43,7 @@ go install github.com/iamsr/tapa/cmd/tapa@latest
 ### Analyze Migrations
 
 **PostgreSQL:**
+
 ```bash
 # Single file
 tapa analyze migrations/001_add_column.sql --db postgres://localhost/mydb
@@ -52,6 +56,7 @@ tapa analyze migrations/ --db $DATABASE_URL --comprehensive
 ```
 
 **MySQL:**
+
 ```bash
 # Basic analysis
 tapa analyze migrations/001_add_index.sql --db-type mysql --db mysql://root@localhost/mydb
@@ -66,11 +71,13 @@ tapa analyze migrations/ --db-type mysql --dry-run
 ### Output Formats
 
 **Human-readable (default):**
+
 ```bash
 tapa analyze migrations/001_migration.sql --db $DATABASE_URL
 ```
 
 **JSON (for CI/CD):**
+
 ```bash
 tapa analyze migrations/ --db $DATABASE_URL --format json > report.json
 ```
@@ -88,6 +95,7 @@ tapa batch migrations/ --format json > batches.json
 ```
 
 Features:
+
 - Risk-based operation grouping
 - Automatic prerequisite detection
 - Parallel execution recommendations
@@ -104,6 +112,7 @@ tapa analyze migrations/ --verbose
 ```
 
 Shows:
+
 - File parsing progress
 - Operation counts
 - Execution time
@@ -111,10 +120,12 @@ Shows:
 ### Color-Coded Output
 
 TAPA automatically displays risk levels and lock types in color for better visibility:
+
 - **Risk Levels:** Green (LOW), Blue (MEDIUM), Yellow (HIGH), Red (CRITICAL)
 - **Lock Types:** Color-coded based on severity
 
 Disable colors if needed:
+
 ```bash
 NO_COLOR=1 tapa analyze migrations/
 ```
@@ -122,16 +133,18 @@ NO_COLOR=1 tapa analyze migrations/
 ### CI/CD Integration
 
 **GitHub Actions:**
+
 ```yaml
 - uses: ./.github/actions/tapa-analyzer
   with:
-    migration-path: 'migrations/'
-    db-type: 'postgresql'
-    fail-on-risk: 'high'
+    migration-path: "migrations/"
+    db-type: "postgresql"
+    fail-on-risk: "high"
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 **GitLab CI:**
+
 ```yaml
 migration-analysis:
   script:
@@ -165,20 +178,72 @@ pkg/models/           # Core data structures
 ## Development
 
 **Requirements:**
+
 - Go 1.21+
 - PostgreSQL 9.6+ or MySQL 5.7+ (for integration tests)
 
 **Build:**
+
 ```bash
 go build ./cmd/tapa
 ```
 
 **Test:**
+
+TAPA has comprehensive test coverage across multiple levels:
+
+### Unit Tests
+
+Located in `tests/unit/` and alongside code in internal packages:
+
 ```bash
-go test ./...
+# Run all unit tests
+go test ./... -short
+
+# Run specific package
+go test ./internal/analyzer -v
+```
+
+### Integration Tests
+
+Integration tests are co-located with code (see `tests/integration/README.md`):
+
+```bash
+# Requires Docker (PostgreSQL + MySQL)
+cd tests/e2e && docker-compose up -d
+go test ./internal/analyzer/postgres -v -run Integration
+go test ./internal/analyzer/mysql -v -run Integration
+cd tests/e2e && docker-compose down -v
+```
+
+### End-to-End Tests
+
+Located in `tests/e2e/`:
+
+```bash
+cd tests/e2e
+./run_tests.sh
+```
+
+This runs the full E2E suite including:
+- PostgreSQL integration tests
+- MySQL integration tests
+- Batch command tests
+
+### CI/CD Tests
+
+CI integration test scripts are in `tests/ci/`:
+
+```bash
+# GitHub Actions
+bash tests/ci/test-github-action.sh
+
+# GitLab CI
+bash tests/ci/test-gitlab-ci.sh
 ```
 
 **Test with coverage:**
+
 ```bash
 go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out

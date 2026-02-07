@@ -1,6 +1,7 @@
 # Worktrees directory
 .worktrees/
 
+*.log
 # Go build artifacts
 bin/
 /tapa
