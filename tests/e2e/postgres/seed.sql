@@ -1,32 +1,56 @@
--- PostgreSQL seed data
--- Insert test data for E2E testing
+-- PostgreSQL seed data for E2E testing
+-- Generates 100,000 rows per table for realistic time estimation
 
--- Insert users
-INSERT INTO users (username) VALUES
-    ('alice'),
-    ('bob'),
-    ('charlie'),
-    ('david'),
-    ('eve')
-ON CONFLICT (username) DO NOTHING;
+-- Clean existing data
+TRUNCATE users, products, orders CASCADE;
 
--- Insert products
-INSERT INTO products (name, price, stock_quantity) VALUES
-    ('Laptop', 999.99, 50),
-    ('Mouse', 29.99, 200),
-    ('Keyboard', 79.99, 150),
-    ('Monitor', 299.99, 75),
-    ('Headphones', 149.99, 100);
+-- Generate 100,000 users
+INSERT INTO users (username, created_at)
+SELECT 
+    'user_' || i,
+    CURRENT_TIMESTAMP - (random() * interval '365 days')
+FROM generate_series(1, 100000) i;
 
--- Insert orders
-INSERT INTO orders (user_id, total_amount, status) VALUES
-    (1, 999.99, 'completed'),
-    (2, 109.98, 'pending'),
-    (3, 379.98, 'completed'),
-    (1, 449.98, 'shipped'),
-    (4, 29.99, 'pending');
+-- Generate 100,000 products
+INSERT INTO products (name, price, stock_quantity, created_at)
+SELECT 
+    'Product ' || i,
+    (random() * 1000)::numeric(10,2),
+    (random() * 1000)::integer,
+    CURRENT_TIMESTAMP - (random() * interval '365 days')
+FROM generate_series(1, 100000) i;
 
--- Verify data
-SELECT 'Users count: ' || COUNT(*) FROM users;
-SELECT 'Products count: ' || COUNT(*) FROM products;
-SELECT 'Orders count: ' || COUNT(*) FROM orders;
+-- Generate 100,000 orders
+INSERT INTO orders (user_id, total_amount, status, created_at)
+SELECT 
+    (random() * 100000 + 1)::integer,
+    (random() * 5000)::numeric(10,2),
+    CASE (random() * 3)::integer
+        WHEN 0 THEN 'pending'
+        WHEN 1 THEN 'completed'
+        ELSE 'shipped'
+    END,
+    CURRENT_TIMESTAMP - (random() * interval '180 days')
+FROM generate_series(1, 100000) i;
+
+-- Verify counts
+DO $$
+BEGIN
+    RAISE NOTICE 'Users: %', (SELECT COUNT(*) FROM users);
+    RAISE NOTICE 'Products: %', (SELECT COUNT(*) FROM products);
+    RAISE NOTICE 'Orders: %', (SELECT COUNT(*) FROM orders);
+END $$;
+
+-- Force statistics update
+ANALYZE users;
+ANALYZE products;
+ANALYZE orders;
+
+-- Display table sizes
+SELECT 
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
