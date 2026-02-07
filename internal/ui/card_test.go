@@ -124,16 +124,23 @@ func TestFormatSummaryCard(t *testing.T) {
 
 	// Check for key components
 	expected := []string{
-		"Migration Summary",
+		"ANALYSIS RESULTS",
+		"Risk Score",
 		"Status:",
-		"Progress:",
-		"Est. Time:",
-		"Risk Breakdown:",
-		"Low",
-		"Medium",
-		"High",
-		"Critical",
-		"Compatibility:",
+		"Lock Analysis",
+		"Type",
+		"Duration",
+		"Queries",
+		"Time Estimate",
+		"Execution",
+		"Table Size",
+		"Compatibility Check",
+	}
+
+	for _, exp := range expected {
+		if !strings.Contains(result, exp) {
+			t.Errorf("FormatSummaryCard() missing %q\nGot:\n%s", exp, result)
+		}
 	}
 
 	for _, exp := range expected {

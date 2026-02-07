@@ -140,47 +140,94 @@ func FormatSummaryCard(migration *models.Migration) string {
 	summary := calculateSummary(migration)
 	var lines []string
 
-	// Status line with emoji
-	statusIcon := getStatusIcon(summary.MaxRiskScore)
-	riskLevel := getRiskLevelFromScore(summary.MaxRiskScore)
+	// Get the first operation for detailed lock/time info
+	var mainOp *models.Operation
+	if len(migration.Operations) > 0 {
+		mainOp = migration.Operations[0]
+	}
+
 	riskColor := getRiskColor(summary.MaxRiskScore)
-	statusLine := fmt.Sprintf("%s Status: %s%s\x1b[0m", statusIcon, riskColor, riskLevel)
+	riskLevel := getRiskLevelFromScore(summary.MaxRiskScore)
+
+	// ===== RISK SCORE SECTION =====
+	lines = append(lines, "\x1b[1mRisk Score\x1b[0m")
+	progressBar := DrawVisualProgressBar(summary.MaxRiskScore, 100, 28, riskColor)
+	lines = append(lines, fmt.Sprintf("%s  %s%d/100\x1b[0m", progressBar, riskColor, summary.MaxRiskScore))
+	statusLine := fmt.Sprintf("Status: %s%s ✓\x1b[0m", riskColor, riskLevel)
 	lines = append(lines, statusLine)
-
-	// Empty line
 	lines = append(lines, "")
 
-	// Overall risk progress bar (0-100 scale)
-	progressBar := DrawVisualProgressBar(summary.MaxRiskScore, 100, 20, riskColor)
-	lines = append(lines, fmt.Sprintf("Progress: %s %d/100", progressBar, summary.MaxRiskScore))
+	// ===== LOCK ANALYSIS SECTION =====
+	lines = append(lines, "\x1b[1mLock Analysis\x1b[0m")
+	if mainOp != nil {
+		lockTypeColor := getLockTypeColor(mainOp.LockType)
+		lockTypeFormatted := fmt.Sprintf("%s%s\x1b[0m", lockTypeColor, mainOp.LockType)
 
-	// Estimated time
-	lines = append(lines, fmt.Sprintf("Est. Time: %s", formatDuration(summary.TotalTime)))
+		// Add description based on lock type
+		lockDesc := getLockDescription(mainOp.LockType)
+		lines = append(lines, fmt.Sprintf("├── Type      %s %s", lockTypeFormatted, lockDesc))
 
-	// Empty line
+		// Format duration
+		durationStr := formatLockDuration(mainOp.LockDurationMS)
+		lines = append(lines, fmt.Sprintf("├── Duration  %s", durationStr))
+
+		// Queries affected (estimate based on lock type)
+		queriesAffected := estimateQueriesAffected(mainOp.LockType)
+		lines = append(lines, fmt.Sprintf("└── Queries   %s", queriesAffected))
+	} else {
+		lines = append(lines, "└── No operations to analyze")
+	}
 	lines = append(lines, "")
 
-	// Risk breakdown (tree-style)
-	lines = append(lines, "Risk Breakdown:")
-	lines = append(lines, formatRiskBreakdown("├── Low", summary.LowRisk, "\x1b[32m"))
-	lines = append(lines, formatRiskBreakdown("├── Medium", summary.MediumRisk, "\x1b[34m"))
-	lines = append(lines, formatRiskBreakdown("├── High", summary.HighRisk, "\x1b[33m"))
-	lines = append(lines, formatRiskBreakdown("└── Critical", summary.CriticalRisk, "\x1b[31m"))
+	// ===== TIME ESTIMATE SECTION =====
+	lines = append(lines, "\x1b[1mTime Estimate\x1b[0m")
+	if mainOp != nil {
+		execTime := formatExecutionTime(mainOp.EstimatedTimeSeconds)
+		lines = append(lines, fmt.Sprintf("├── Execution  %s", execTime))
 
-	// Empty line
+		// Table size info (if available, otherwise show generic message)
+		tableSizeInfo := formatTableSizeInfo(mainOp)
+		lines = append(lines, fmt.Sprintf("└── Table Size %s", tableSizeInfo))
+	} else {
+		lines = append(lines, "└── No time estimate available")
+	}
 	lines = append(lines, "")
 
-	// Compatibility checklist
-	lines = append(lines, "Compatibility:")
-	compatLine := formatCompatibilityCheck(summary.BackwardCompatible, summary.TotalOps)
-	lines = append(lines, compatLine)
+	// ===== COMPATIBILITY CHECK SECTION =====
+	lines = append(lines, "\x1b[1mCompatibility Check\x1b[0m")
 
-	// Bottom message
-	bottomMsg := getBottomMessage(summary.MaxRiskScore)
-	lines = append(lines, "")
-	lines = append(lines, bottomMsg)
+	// Check backward compatibility
+	allBackwardCompatible := summary.BackwardCompatible == summary.TotalOps
+	if allBackwardCompatible {
+		lines = append(lines, "\x1b[32m✓ Backward compatible\x1b[0m")
+	} else {
+		lines = append(lines, "\x1b[33m⚠ May break backward compatibility\x1b[0m")
+	}
 
-	return DrawBox("📊 Migration Summary", lines, 70)
+	// Check for breaking changes (based on operation types)
+	hasBreakingChanges := checkForBreakingChanges(migration.Operations)
+	if !hasBreakingChanges {
+		lines = append(lines, "\x1b[32m✓ No breaking changes\x1b[0m")
+	} else {
+		lines = append(lines, "\x1b[33m⚠ Contains breaking changes\x1b[0m")
+	}
+
+	// Check rolling deployment safety
+	rollingSafe := isRollingSafe(summary.MaxRiskScore, allBackwardCompatible)
+	if rollingSafe {
+		lines = append(lines, "\x1b[32m✓ Rolling deployment safe\x1b[0m")
+	} else {
+		lines = append(lines, "\x1b[33m⚠ Requires maintenance window\x1b[0m")
+	}
+
+	// Create main card
+	mainCard := DrawBox("ANALYSIS RESULTS", lines, 65)
+
+	// ===== BOTTOM MESSAGE BOX =====
+	bottomLines := []string{getBottomMessage(summary.MaxRiskScore)}
+	bottomCard := DrawBox("", bottomLines, 65)
+
+	return mainCard + "\n" + bottomCard
 }
 
 // calculateSummary computes summary statistics from a migration
@@ -262,13 +309,13 @@ func formatCompatibilityCheck(compatible int, total int) string {
 func getBottomMessage(maxRiskScore int) string {
 	switch {
 	case maxRiskScore >= 76:
-		return "⚠️  CRITICAL: Review carefully before proceeding"
+		return "  \x1b[31m⚠  CRITICAL: Review carefully before proceeding\x1b[0m"
 	case maxRiskScore >= 51:
-		return "⚠️  HIGH RISK: Test thoroughly in staging"
+		return "  \x1b[33m⚠  Requires thorough testing in staging environment\x1b[0m"
 	case maxRiskScore >= 26:
-		return "ℹ️  MEDIUM RISK: Standard precautions apply"
+		return "  \x1b[34mℹ  Standard precautions recommended\x1b[0m"
 	default:
-		return "✓ LOW RISK: Safe to proceed"
+		return "  \x1b[32m✨ SAFE TO DEPLOY\x1b[0m\n  \x1b[32mThis migration can run without downtime.\x1b[0m"
 	}
 }
 
@@ -304,12 +351,120 @@ func getRiskColor(riskScore int) string {
 func getRiskLevelFromScore(riskScore int) string {
 	switch {
 	case riskScore >= 76:
-		return "CRITICAL"
+		return "CRITICAL RISK"
 	case riskScore >= 51:
-		return "HIGH"
+		return "HIGH RISK"
 	case riskScore >= 26:
-		return "MEDIUM"
+		return "MEDIUM RISK"
 	default:
-		return "LOW"
+		return "LOW RISK"
 	}
+}
+
+// getLockTypeColor returns ANSI color code for lock type
+func getLockTypeColor(lockType models.LockType) string {
+	switch lockType {
+	case models.LockTypeAccessExclusive:
+		return "\x1b[31m" // Red
+	case models.LockTypeExclusive:
+		return "\x1b[33m" // Yellow
+	case models.LockTypeShare, models.LockTypeShareUpdateExclusive:
+		return "\x1b[34m" // Blue
+	default:
+		return "\x1b[32m" // Green
+	}
+}
+
+// getLockDescription returns a human-readable description of the lock type
+func getLockDescription(lockType models.LockType) string {
+	switch lockType {
+	case models.LockTypeAccessExclusive:
+		return "(blocks all access)"
+	case models.LockTypeExclusive:
+		return "(blocks concurrent DDL)"
+	case models.LockTypeShare:
+		return "(allows reads)"
+	case models.LockTypeShareUpdateExclusive:
+		return "(allows reads, blocks writes)"
+	case models.LockTypeRowExclusive:
+		return "(minimal locking)"
+	default:
+		return "(metadata only)"
+	}
+}
+
+// formatLockDuration formats lock duration in a human-readable way
+func formatLockDuration(durationMS int64) string {
+	if durationMS < 10 {
+		return "\x1b[32m< 10ms\x1b[0m"
+	} else if durationMS < 100 {
+		return fmt.Sprintf("\x1b[32m%dms\x1b[0m", durationMS)
+	} else if durationMS < 1000 {
+		return fmt.Sprintf("\x1b[33m%dms\x1b[0m", durationMS)
+	} else {
+		seconds := float64(durationMS) / 1000.0
+		return fmt.Sprintf("\x1b[31m%.1fs\x1b[0m", seconds)
+	}
+}
+
+// estimateQueriesAffected estimates number of queries affected by lock
+func estimateQueriesAffected(lockType models.LockType) string {
+	switch lockType {
+	case models.LockTypeAccessExclusive:
+		return "\x1b[31mAll queries blocked\x1b[0m"
+	case models.LockTypeExclusive:
+		return "\x1b[33mDDL queries blocked\x1b[0m"
+	case models.LockTypeShare:
+		return "\x1b[34mWrites blocked\x1b[0m"
+	case models.LockTypeShareUpdateExclusive:
+		return "\x1b[34mWrites delayed\x1b[0m"
+	default:
+		return "\x1b[32m0 affected\x1b[0m"
+	}
+}
+
+// formatExecutionTime formats execution time in a human-readable way
+func formatExecutionTime(seconds float64) string {
+	if seconds < 1 {
+		return "\x1b[32m< 1 second\x1b[0m"
+	} else if seconds < 60 {
+		return fmt.Sprintf("\x1b[32m%.1f seconds\x1b[0m", seconds)
+	} else if seconds < 300 { // < 5 minutes
+		minutes := seconds / 60.0
+		return fmt.Sprintf("\x1b[33m%.1f minutes\x1b[0m", minutes)
+	} else {
+		minutes := seconds / 60.0
+		return fmt.Sprintf("\x1b[31m%.1f minutes\x1b[0m", minutes)
+	}
+}
+
+// formatTableSizeInfo formats table size information
+func formatTableSizeInfo(op *models.Operation) string {
+	if op.RequiresRewrite {
+		return "\x1b[31m(full table rewrite needed)\x1b[0m"
+	}
+	// Generic message since we don't have actual row count in the operation struct
+	return "\x1b[32m(no rewrite needed)\x1b[0m"
+}
+
+// checkForBreakingChanges checks if operations contain breaking changes
+func checkForBreakingChanges(operations []*models.Operation) bool {
+	for _, op := range operations {
+		switch op.Type {
+		case models.OperationTypeDropColumn, models.OperationTypeDropTable, models.OperationTypeDropIndex:
+			return true
+		case models.OperationTypeAlterColumn:
+			// Type changes or NOT NULL additions are breaking
+			if strings.Contains(strings.ToUpper(op.SQL), "TYPE") ||
+				strings.Contains(strings.ToUpper(op.SQL), "NOT NULL") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isRollingSafe determines if migration is safe for rolling deployment
+func isRollingSafe(maxRiskScore int, allBackwardCompatible bool) bool {
+	return maxRiskScore < 51 && allBackwardCompatible
 }
