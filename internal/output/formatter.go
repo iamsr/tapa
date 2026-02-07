@@ -40,6 +40,9 @@ func FormatTable(w io.Writer, result *models.AnalysisResult) error {
 
 		// Display individual operation cards
 		for j, op := range migration.Operations {
+			if j > 0 {
+				fmt.Fprintln(w) // Add blank line between operation cards
+			}
 			opCard := ui.FormatOperationCard(op, j+1)
 			fmt.Fprint(w, opCard)
 		}

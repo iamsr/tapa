@@ -413,10 +413,18 @@ func FormatOperationCard(op *models.Operation, index int) string {
 	// For most ops they're the same; only show both when different
 	lockDurStr := formatLockDuration(op.LockDurationMS)
 	execTimeStr := formatExecutionTime(op.EstimatedTimeSeconds)
-	lockDurPlain := stripAnsi(lockDurStr)
-	execTimePlain := stripAnsi(execTimeStr)
 
-	if lockDurPlain == execTimePlain {
+	// Compare raw values (lock in ms, execution in seconds)
+	// They're considered "same" if lock duration (in seconds) matches execution time
+	lockDurSec := float64(op.LockDurationMS) / 1000.0
+	execTimeSec := op.EstimatedTimeSeconds
+
+	// Use tolerance for floating point comparison
+	timesAreSame := (lockDurSec > 0 && execTimeSec > 0 &&
+		(lockDurSec/execTimeSec > 0.95 && lockDurSec/execTimeSec < 1.05)) ||
+		(lockDurSec == 0 && execTimeSec == 0)
+
+	if timesAreSame {
 		// Same value — just show once as "Time"
 		result.WriteString(fmt.Sprintf("  Time:  %s", execTimeStr))
 	} else {
