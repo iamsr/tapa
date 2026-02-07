@@ -73,6 +73,26 @@ for i in {1..30}; do
         exit 1
     fi
 done
+
+# Wait for seed data to be loaded (check row counts)
+echo -n "  Waiting for seed data"
+for i in {1..60}; do
+    PG_COUNT=$(docker exec tapa-e2e-postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
+    MYSQL_COUNT=$(docker exec tapa-e2e-mysql mysql -u testuser -ptestpass -D testdb -N -e "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "0")
+    
+    if [ "$PG_COUNT" = "100000" ] && [ "$MYSQL_COUNT" = "100000" ]; then
+        echo -e " ${GREEN}✓${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+    if [ $i -eq 60 ]; then
+        echo -e " ${RED}✗ Timeout waiting for seed data${NC}"
+        echo "PostgreSQL rows: $PG_COUNT, MySQL rows: $MYSQL_COUNT"
+        docker-compose down -v
+        exit 1
+    fi
+done
 echo ""
 
 # Run PostgreSQL E2E test
