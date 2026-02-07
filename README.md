@@ -81,23 +81,30 @@ tapa analyze migrations/001_migration.sql --db $DATABASE_URL
 Example output:
 
 ```
-╭─ 📊 Migration Summary ────────────────────────────────────────────╮
-│ 🟠 Status: HIGH                                                    │
-│                                                                    │
-│ Progress: ██████████████████░░ 70/100                            │
-│ Est. Time: 8.1m                                                    │
-│                                                                    │
-│ Risk Breakdown:                                                    │
-│   ├── Low      0                                                   │
-│   ├── Medium ▪ 1                                                   │
-│   ├── High   ▪▪▪▪ 4                                                │
-│   └── Critical  0                                                  │
-│                                                                    │
-│ Compatibility:                                                     │
-│   ✓ All operations backward compatible (5/5)                     │
-│                                                                    │
-│ ⚠️  HIGH RISK: Test thoroughly in staging                         │
-╰────────────────────────────────────────────────────────────────────╯
+  ✓ Dry-run mode (no database connection)
+  Parsing migration file(s)...
+  ✓ Found 6 statements
+  Analyzing operations...
+  ✓ Analysis complete
+
+╭─ ANALYSIS RESULTS ────────────────────────────────────────────────────────╮
+│ Risk Score                                                               │
+│ ███████████████████░░░░░░░░░  70/100                                     │
+│ Status: HIGH RISK 🟠                                                     │
+│                                                                          │
+│ Est. Time: 4.3m                                                          │
+│                                                                          │
+│ Risk Breakdown:                                                          │
+│     ├── Low      ▪ 1                                                     │
+│     ├── Medium   ▪▪ 2                                                    │
+│     ├── High     ▪▪▪ 3                                                   │
+│     └── Critical  0                                                      │
+│                                                                          │
+│ Compatibility:                                                           │
+│   ✓ All operations backward compatible (6/6)                             │
+│   ✓ No breaking changes                                                  │
+│   ⚠ Requires maintenance window                                         │
+╰──────────────────────────────────────────────────────────────────────────╯
 ```
 
 Features:
@@ -133,31 +140,46 @@ Features:
 
 See [Batching Guide](docs/batching-guide.md) for details.
 
-### Verbose Mode
+### Progress Output
 
-Get detailed progress information during analysis:
+TAPA displays step-by-step progress on stderr during analysis:
 
 ```bash
-tapa analyze migrations/ --verbose
+tapa analyze migrations/ --db $DATABASE_URL
 ```
 
-Shows:
+Progress output (on stderr):
+```
+  Connecting to database...
+  ✓ Connected to Postgresql
+  Parsing migration file(s)...
+  ✓ Found 6 statements
+  Analyzing operations...
+  ✓ Analysis complete
+```
 
-- File parsing progress
-- Operation counts
-- Execution time
+This keeps stdout clean for JSON output while showing progress:
+```bash
+tapa analyze migrations/ --format json > report.json  # Progress on stderr, JSON on stdout
+```
+
+Disable emojis in progress output:
+```bash
+TAPA_NO_EMOJI=1 tapa analyze migrations/
+```
 
 ### Color-Coded Output
 
 TAPA automatically displays risk levels and lock types in color for better visibility:
 
-- **Risk Levels:** Green (LOW), Blue (MEDIUM), Yellow (HIGH), Red (CRITICAL)
+- **Risk Levels:** Green (LOW), Yellow (MEDIUM), Orange (HIGH), Red (CRITICAL)
 - **Lock Types:** Color-coded based on severity
 
-Disable colors if needed:
+Disable colors or emojis if needed:
 
 ```bash
-NO_COLOR=1 tapa analyze migrations/
+NO_COLOR=1 tapa analyze migrations/       # Disable colors
+TAPA_NO_EMOJI=1 tapa analyze migrations/  # Replace emojis with text
 ```
 
 ### CI/CD Integration
