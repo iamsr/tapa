@@ -93,9 +93,9 @@ func DrawVisualProgressBar(completed int, total int, width int, fillColor string
 		}
 	}
 
-	// Apply color if provided
-	if fillColor != "" {
-		bar = fillColor + bar + "\x1b[0m"
+	// Apply color if provided and colors are enabled
+	if fillColor != "" && colorsEnabled() {
+		bar = fillColor + bar + ansiReset
 	}
 
 	return bar

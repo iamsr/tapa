@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -342,5 +343,186 @@ func TestFormatDuration(t *testing.T) {
 				t.Errorf("formatDuration() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestColorsEnabled(t *testing.T) {
+	// Save original env vars
+	origNoColor := os.Getenv("NO_COLOR")
+	origTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("NO_COLOR", origNoColor)
+		os.Setenv("TERM", origTerm)
+	}()
+
+	// In test environment, stdout is not a TTY, so colors are always disabled
+	// unless we explicitly test NO_COLOR behavior
+	os.Setenv("NO_COLOR", "1")
+	os.Setenv("TERM", "xterm-256color")
+	if colorsEnabled() {
+		t.Errorf("colorsEnabled() = true with NO_COLOR=1, want false")
+	}
+
+	os.Setenv("NO_COLOR", "")
+	os.Setenv("TERM", "dumb")
+	if colorsEnabled() {
+		t.Errorf("colorsEnabled() = true with TERM=dumb, want false")
+	}
+
+	os.Setenv("NO_COLOR", "")
+	os.Setenv("TERM", "")
+	if colorsEnabled() {
+		t.Errorf("colorsEnabled() = true with TERM='', want false")
+	}
+}
+
+func TestColorize(t *testing.T) {
+	// Save and restore NO_COLOR
+	origNoColor := os.Getenv("NO_COLOR")
+	origTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("NO_COLOR", origNoColor)
+		os.Setenv("TERM", origTerm)
+	}()
+
+	// Force colors off
+	os.Setenv("NO_COLOR", "1")
+	os.Setenv("TERM", "xterm-256color")
+
+	got := colorize("error", ansiRed)
+	if got != "error" {
+		t.Errorf("colorize() with NO_COLOR=1 = %q, want %q", got, "error")
+	}
+
+	got = bold("heading")
+	if got != "heading" {
+		t.Errorf("bold() with NO_COLOR=1 = %q, want %q", got, "heading")
+	}
+}
+
+func TestEmojisEnabled(t *testing.T) {
+	origNoEmoji := os.Getenv("TAPA_NO_EMOJI")
+	defer os.Setenv("TAPA_NO_EMOJI", origNoEmoji)
+
+	os.Setenv("TAPA_NO_EMOJI", "")
+	if !emojisEnabled() {
+		t.Errorf("emojisEnabled() = false without TAPA_NO_EMOJI, want true")
+	}
+
+	os.Setenv("TAPA_NO_EMOJI", "1")
+	if emojisEnabled() {
+		t.Errorf("emojisEnabled() = true with TAPA_NO_EMOJI=1, want false")
+	}
+}
+
+func TestEmoji(t *testing.T) {
+	origNoEmoji := os.Getenv("TAPA_NO_EMOJI")
+	defer os.Setenv("TAPA_NO_EMOJI", origNoEmoji)
+
+	os.Setenv("TAPA_NO_EMOJI", "")
+	got := emoji("🟢", "[+]")
+	if got != "🟢" {
+		t.Errorf("emoji() without TAPA_NO_EMOJI = %q, want %q", got, "🟢")
+	}
+
+	os.Setenv("TAPA_NO_EMOJI", "1")
+	got = emoji("🟢", "[+]")
+	if got != "[+]" {
+		t.Errorf("emoji() with TAPA_NO_EMOJI=1 = %q, want %q", got, "[+]")
+	}
+}
+
+func TestFormatSummaryCardNoColor(t *testing.T) {
+	// Save and restore env vars
+	origNoColor := os.Getenv("NO_COLOR")
+	origTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("NO_COLOR", origNoColor)
+		os.Setenv("TERM", origTerm)
+	}()
+
+	os.Setenv("NO_COLOR", "1")
+	os.Setenv("TERM", "xterm-256color")
+
+	migration := models.NewMigration("test.sql")
+	migration.AddOperation(&models.Operation{
+		RiskScore:          15,
+		BackwardCompatible: true,
+	})
+
+	result := FormatSummaryCard(migration)
+
+	// With NO_COLOR=1, output should have NO ANSI escape codes
+	if strings.Contains(result, "\x1b[") {
+		t.Errorf("FormatSummaryCard() with NO_COLOR=1 contains ANSI codes:\n%s", result)
+	}
+
+	// Should still contain text content
+	if !strings.Contains(result, "ANALYSIS RESULTS") {
+		t.Errorf("FormatSummaryCard() with NO_COLOR=1 missing 'ANALYSIS RESULTS'")
+	}
+	if !strings.Contains(result, "SAFE TO DEPLOY") {
+		t.Errorf("FormatSummaryCard() with NO_COLOR=1 missing 'SAFE TO DEPLOY'")
+	}
+}
+
+func TestFormatOperationCardNoColor(t *testing.T) {
+	origNoColor := os.Getenv("NO_COLOR")
+	origTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("NO_COLOR", origNoColor)
+		os.Setenv("TERM", origTerm)
+	}()
+
+	os.Setenv("NO_COLOR", "1")
+	os.Setenv("TERM", "xterm-256color")
+
+	op := &models.Operation{
+		Type:                 models.OperationTypeAlterTable,
+		TableName:            "users",
+		SQL:                  "ALTER TABLE users ADD COLUMN phone VARCHAR(20);",
+		RiskScore:            15,
+		LockType:             models.LockTypeAccessExclusive,
+		LockDurationMS:       5,
+		EstimatedTimeSeconds: 0.5,
+		BackwardCompatible:   true,
+		RequiresRewrite:      false,
+		Recommendations:      []string{"Consider using IF NOT EXISTS"},
+	}
+
+	result := FormatOperationCard(op, 1)
+
+	// With NO_COLOR=1, output should have NO ANSI escape codes
+	if strings.Contains(result, "\x1b[") {
+		t.Errorf("FormatOperationCard() with NO_COLOR=1 contains ANSI codes:\n%s", result)
+	}
+
+	// Should still contain text content
+	if !strings.Contains(result, "Lock Analysis") {
+		t.Errorf("FormatOperationCard() with NO_COLOR=1 missing 'Lock Analysis'")
+	}
+}
+
+func TestFormatSummaryCardNoEmoji(t *testing.T) {
+	origNoEmoji := os.Getenv("TAPA_NO_EMOJI")
+	defer os.Setenv("TAPA_NO_EMOJI", origNoEmoji)
+
+	os.Setenv("TAPA_NO_EMOJI", "1")
+
+	migration := models.NewMigration("test.sql")
+	migration.AddOperation(&models.Operation{
+		RiskScore:          15,
+		BackwardCompatible: true,
+	})
+
+	result := FormatSummaryCard(migration)
+
+	// With TAPA_NO_EMOJI=1, should use text fallbacks
+	if strings.Contains(result, "🟢") || strings.Contains(result, "✨") {
+		t.Errorf("FormatSummaryCard() with TAPA_NO_EMOJI=1 still contains emojis:\n%s", result)
+	}
+	// Should contain fallback characters
+	if !strings.Contains(result, "[+]") && !strings.Contains(result, "*") {
+		t.Errorf("FormatSummaryCard() with TAPA_NO_EMOJI=1 missing emoji fallbacks")
 	}
 }

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -20,8 +21,68 @@ const (
 	boxVertical    = "│"
 )
 
+// ANSI color codes used within the ui package
+const (
+	ansiReset  = "\x1b[0m"
+	ansiRed    = "\x1b[31m"
+	ansiGreen  = "\x1b[32m"
+	ansiYellow = "\x1b[33m"
+	ansiBlue   = "\x1b[34m"
+	ansiBold   = "\x1b[1m"
+)
+
 // ansiRegex is compiled once at package initialization for performance
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// colorsEnabled checks if color output should be enabled.
+// Mirrors output.ColorsEnabled() to avoid circular dependency.
+func colorsEnabled() bool {
+	// Respect NO_COLOR environment variable (https://no-color.org/)
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+
+	// Check if TERM is set and not dumb
+	term := os.Getenv("TERM")
+	if term == "" || term == "dumb" {
+		return false
+	}
+
+	// Check if stdout is a terminal
+	fileInfo, _ := os.Stdout.Stat()
+	if (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+		return false
+	}
+
+	return true
+}
+
+// colorize wraps text in an ANSI color code, respecting NO_COLOR.
+func colorize(text, color string) string {
+	if !colorsEnabled() {
+		return text
+	}
+	return color + text + ansiReset
+}
+
+// bold wraps text in ANSI bold, respecting NO_COLOR.
+func bold(text string) string {
+	return colorize(text, ansiBold)
+}
+
+// emojisEnabled checks if emoji output should be enabled.
+// Set TAPA_NO_EMOJI=1 to disable emojis (useful for terminals with poor emoji support).
+func emojisEnabled() bool {
+	return os.Getenv("TAPA_NO_EMOJI") == ""
+}
+
+// emoji returns the emoji string if emojis are enabled, otherwise the fallback text.
+func emoji(emojiStr, fallback string) string {
+	if emojisEnabled() {
+		return emojiStr
+	}
+	return fallback
+}
 
 // DrawBox draws a box with the given content lines
 func DrawBox(title string, lines []string, width int) string {
@@ -189,43 +250,43 @@ func FormatSummaryCard(migration *models.Migration) string {
 	var lines []string
 
 	// ── Risk Score ──
-	lines = append(lines, "\x1b[1mRisk Score\x1b[0m")
+	lines = append(lines, bold("Risk Score"))
 	progressBar := DrawVisualProgressBar(summary.MaxRiskScore, 100, 28, riskColor)
-	lines = append(lines, fmt.Sprintf("%s  %s%d/100\x1b[0m", progressBar, riskColor, summary.MaxRiskScore))
-	lines = append(lines, fmt.Sprintf("Status: %s%s\x1b[0m %s", riskColor, riskLevel, getStatusIcon(summary.MaxRiskScore)))
+	lines = append(lines, fmt.Sprintf("%s  %s", progressBar, colorize(fmt.Sprintf("%d/100", summary.MaxRiskScore), riskColor)))
+	lines = append(lines, fmt.Sprintf("Status: %s %s", colorize(riskLevel, riskColor), getStatusIcon(summary.MaxRiskScore)))
 	lines = append(lines, "")
 
 	// ── Est. Time ──
-	lines = append(lines, fmt.Sprintf("\x1b[1mEst. Time:\x1b[0m %s", formatDuration(summary.TotalTime)))
+	lines = append(lines, fmt.Sprintf("%s %s", bold("Est. Time:"), formatDuration(summary.TotalTime)))
 	lines = append(lines, "")
 
 	// ── Risk Breakdown ──
-	lines = append(lines, "\x1b[1mRisk Breakdown:\x1b[0m")
-	lines = append(lines, formatRiskBreakdown("  ├── Low     ", summary.LowRisk, "\x1b[32m"))
-	lines = append(lines, formatRiskBreakdown("  ├── Medium  ", summary.MediumRisk, "\x1b[34m"))
-	lines = append(lines, formatRiskBreakdown("  ├── High    ", summary.HighRisk, "\x1b[33m"))
-	lines = append(lines, formatRiskBreakdown("  └── Critical", summary.CriticalRisk, "\x1b[31m"))
+	lines = append(lines, bold("Risk Breakdown:"))
+	lines = append(lines, formatRiskBreakdown("  ├── Low     ", summary.LowRisk, ansiGreen))
+	lines = append(lines, formatRiskBreakdown("  ├── Medium  ", summary.MediumRisk, ansiBlue))
+	lines = append(lines, formatRiskBreakdown("  ├── High    ", summary.HighRisk, ansiYellow))
+	lines = append(lines, formatRiskBreakdown("  └── Critical", summary.CriticalRisk, ansiRed))
 	lines = append(lines, "")
 
 	// ── Compatibility ──
-	lines = append(lines, "\x1b[1mCompatibility:\x1b[0m")
+	lines = append(lines, bold("Compatibility:"))
 	allCompat := summary.BackwardCompatible == summary.TotalOps
 	if allCompat {
-		lines = append(lines, fmt.Sprintf("  \x1b[32m✓\x1b[0m All operations backward compatible (%d/%d)", summary.BackwardCompatible, summary.TotalOps))
+		lines = append(lines, fmt.Sprintf("  %s All operations backward compatible (%d/%d)", colorize("✓", ansiGreen), summary.BackwardCompatible, summary.TotalOps))
 	} else {
-		lines = append(lines, fmt.Sprintf("  \x1b[33m⚠\x1b[0m %d/%d operations backward compatible", summary.BackwardCompatible, summary.TotalOps))
+		lines = append(lines, fmt.Sprintf("  %s %d/%d operations backward compatible", colorize("⚠", ansiYellow), summary.BackwardCompatible, summary.TotalOps))
 	}
 	hasBreaking := checkForBreakingChanges(migration.Operations)
 	if !hasBreaking {
-		lines = append(lines, "  \x1b[32m✓\x1b[0m No breaking changes")
+		lines = append(lines, fmt.Sprintf("  %s No breaking changes", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, "  \x1b[31m✗\x1b[0m Contains breaking changes")
+		lines = append(lines, fmt.Sprintf("  %s Contains breaking changes", colorize("✗", ansiRed)))
 	}
 	rollingSafe := isRollingSafe(summary.MaxRiskScore, allCompat)
 	if rollingSafe {
-		lines = append(lines, "  \x1b[32m✓\x1b[0m Rolling deployment safe")
+		lines = append(lines, fmt.Sprintf("  %s Rolling deployment safe", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, "  \x1b[33m⚠\x1b[0m Requires maintenance window")
+		lines = append(lines, fmt.Sprintf("  %s Requires maintenance window", colorize("⚠", ansiYellow)))
 	}
 
 	// Build the two-box layout
@@ -284,18 +345,18 @@ func FormatOperationCard(op *models.Operation, index int) string {
 	lines = append(lines, "")
 
 	// ── Risk Score ──
-	lines = append(lines, "\x1b[1mRisk Score\x1b[0m")
+	lines = append(lines, bold("Risk Score"))
 	bar := DrawVisualProgressBar(op.RiskScore, 100, 28, riskColor)
-	lines = append(lines, fmt.Sprintf("%s  %s%d/100\x1b[0m", bar, riskColor, op.RiskScore))
+	lines = append(lines, fmt.Sprintf("%s  %s", bar, colorize(fmt.Sprintf("%d/100", op.RiskScore), riskColor)))
 	riskLevel := getRiskLevelFromScore(op.RiskScore)
-	lines = append(lines, fmt.Sprintf("Status: %s%s\x1b[0m %s", riskColor, riskLevel, getStatusIcon(op.RiskScore)))
+	lines = append(lines, fmt.Sprintf("Status: %s %s", colorize(riskLevel, riskColor), getStatusIcon(op.RiskScore)))
 	lines = append(lines, "")
 
 	// ── Lock Analysis ──
-	lines = append(lines, "\x1b[1mLock Analysis\x1b[0m")
+	lines = append(lines, bold("Lock Analysis"))
 	lockColor := getLockTypeColor(op.LockType)
 	lockDesc := getLockDescription(op.LockType)
-	lines = append(lines, fmt.Sprintf("  ├── Type      %s%s\x1b[0m %s", lockColor, op.LockType, lockDesc))
+	lines = append(lines, fmt.Sprintf("  ├── Type      %s %s", colorize(string(op.LockType), lockColor), lockDesc))
 	durationStr := formatLockDuration(op.LockDurationMS)
 	lines = append(lines, fmt.Sprintf("  ├── Duration  %s", durationStr))
 	queriesStr := estimateQueriesAffected(op.LockType)
@@ -303,7 +364,7 @@ func FormatOperationCard(op *models.Operation, index int) string {
 	lines = append(lines, "")
 
 	// ── Time Estimate ──
-	lines = append(lines, "\x1b[1mTime Estimate\x1b[0m")
+	lines = append(lines, bold("Time Estimate"))
 	execTime := formatExecutionTime(op.EstimatedTimeSeconds)
 	lines = append(lines, fmt.Sprintf("  ├── Execution  %s", execTime))
 	tableSizeInfo := formatTableSizeInfo(op)
@@ -311,22 +372,22 @@ func FormatOperationCard(op *models.Operation, index int) string {
 	lines = append(lines, "")
 
 	// ── Compatibility ──
-	lines = append(lines, "\x1b[1mCompatibility\x1b[0m")
+	lines = append(lines, bold("Compatibility"))
 	if op.BackwardCompatible {
-		lines = append(lines, "  \x1b[32m✓\x1b[0m Backward compatible")
+		lines = append(lines, fmt.Sprintf("  %s Backward compatible", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, "  \x1b[33m⚠\x1b[0m May break backward compatibility")
+		lines = append(lines, fmt.Sprintf("  %s May break backward compatibility", colorize("⚠", ansiYellow)))
 	}
 	if !op.RequiresRewrite {
-		lines = append(lines, "  \x1b[32m✓\x1b[0m No table rewrite")
+		lines = append(lines, fmt.Sprintf("  %s No table rewrite", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, "  \x1b[31m✗\x1b[0m Requires full table rewrite")
+		lines = append(lines, fmt.Sprintf("  %s Requires full table rewrite", colorize("✗", ansiRed)))
 	}
 
 	// ── Recommendations ──
 	if len(op.Recommendations) > 0 {
 		lines = append(lines, "")
-		lines = append(lines, "\x1b[1mRecommendations\x1b[0m")
+		lines = append(lines, bold("Recommendations"))
 		for _, rec := range op.Recommendations {
 			wrapped := wrapText("  • "+rec, innerWidth, "    ")
 			lines = append(lines, wrapped...)
@@ -399,7 +460,7 @@ func formatRiskBreakdown(label string, count int, color string) string {
 		bar = strings.Repeat("▪", filledWidth)
 	}
 	if color != "" && bar != "" {
-		bar = color + bar + "\x1b[0m"
+		bar = colorize(bar, color)
 	}
 	return fmt.Sprintf("  %s %s %d", label, bar, count)
 }
@@ -408,15 +469,15 @@ func formatRiskBreakdown(label string, count int, color string) string {
 func getBottomMessage(maxRiskScore int) []string {
 	switch {
 	case maxRiskScore >= 76:
-		return []string{"  \x1b[31m⚠  CRITICAL: Review carefully before proceeding\x1b[0m"}
+		return []string{fmt.Sprintf("  %s", colorize(emoji("⚠", "!")+"  CRITICAL: Review carefully before proceeding", ansiRed))}
 	case maxRiskScore >= 51:
-		return []string{"  \x1b[33m⚠  Requires thorough testing in staging environment\x1b[0m"}
+		return []string{fmt.Sprintf("  %s", colorize(emoji("⚠", "!")+"  Requires thorough testing in staging environment", ansiYellow))}
 	case maxRiskScore >= 26:
-		return []string{"  \x1b[34mℹ  Standard precautions recommended\x1b[0m"}
+		return []string{fmt.Sprintf("  %s", colorize(emoji("ℹ", "i")+"  Standard precautions recommended", ansiBlue))}
 	default:
 		return []string{
-			"  \x1b[32m✨ SAFE TO DEPLOY\x1b[0m",
-			"  \x1b[32mThis migration can run without downtime.\x1b[0m",
+			fmt.Sprintf("  %s", colorize(emoji("✨", "*")+" SAFE TO DEPLOY", ansiGreen)),
+			fmt.Sprintf("  %s", colorize("This migration can run without downtime.", ansiGreen)),
 		}
 	}
 }
@@ -425,27 +486,30 @@ func getBottomMessage(maxRiskScore int) []string {
 func getStatusIcon(riskScore int) string {
 	switch {
 	case riskScore >= 76:
-		return "🔴"
+		return emoji("🔴", "[!]")
 	case riskScore >= 51:
-		return "🟠"
+		return emoji("🟠", "[!]")
 	case riskScore >= 26:
-		return "🟡"
+		return emoji("🟡", "[-]")
 	default:
-		return "🟢"
+		return emoji("🟢", "[+]")
 	}
 }
 
-// getRiskColor returns ANSI color code for risk score
+// getRiskColor returns ANSI color code for risk score, or empty string if colors disabled
 func getRiskColor(riskScore int) string {
+	if !colorsEnabled() {
+		return ""
+	}
 	switch {
 	case riskScore >= 76:
-		return "\x1b[31m" // Red
+		return ansiRed
 	case riskScore >= 51:
-		return "\x1b[33m" // Yellow
+		return ansiYellow
 	case riskScore >= 26:
-		return "\x1b[34m" // Blue
+		return ansiBlue
 	default:
-		return "\x1b[32m" // Green
+		return ansiGreen
 	}
 }
 
@@ -463,17 +527,20 @@ func getRiskLevelFromScore(riskScore int) string {
 	}
 }
 
-// getLockTypeColor returns ANSI color code for lock type
+// getLockTypeColor returns ANSI color code for lock type, or empty string if colors disabled
 func getLockTypeColor(lockType models.LockType) string {
+	if !colorsEnabled() {
+		return ""
+	}
 	switch lockType {
 	case models.LockTypeAccessExclusive:
-		return "\x1b[31m" // Red
+		return ansiRed
 	case models.LockTypeExclusive:
-		return "\x1b[33m" // Yellow
+		return ansiYellow
 	case models.LockTypeShare, models.LockTypeShareUpdateExclusive:
-		return "\x1b[34m" // Blue
+		return ansiBlue
 	default:
-		return "\x1b[32m" // Green
+		return ansiGreen
 	}
 }
 
@@ -498,14 +565,14 @@ func getLockDescription(lockType models.LockType) string {
 // formatLockDuration formats lock duration in a human-readable way
 func formatLockDuration(durationMS int64) string {
 	if durationMS < 10 {
-		return "\x1b[32m< 10ms\x1b[0m"
+		return colorize("< 10ms", ansiGreen)
 	} else if durationMS < 100 {
-		return fmt.Sprintf("\x1b[32m%dms\x1b[0m", durationMS)
+		return colorize(fmt.Sprintf("%dms", durationMS), ansiGreen)
 	} else if durationMS < 1000 {
-		return fmt.Sprintf("\x1b[33m%dms\x1b[0m", durationMS)
+		return colorize(fmt.Sprintf("%dms", durationMS), ansiYellow)
 	} else {
 		seconds := float64(durationMS) / 1000.0
-		return fmt.Sprintf("\x1b[31m%.1fs\x1b[0m", seconds)
+		return colorize(fmt.Sprintf("%.1fs", seconds), ansiRed)
 	}
 }
 
@@ -513,40 +580,40 @@ func formatLockDuration(durationMS int64) string {
 func estimateQueriesAffected(lockType models.LockType) string {
 	switch lockType {
 	case models.LockTypeAccessExclusive:
-		return "\x1b[31mAll queries blocked\x1b[0m"
+		return colorize("All queries blocked", ansiRed)
 	case models.LockTypeExclusive:
-		return "\x1b[33mDDL queries blocked\x1b[0m"
+		return colorize("DDL queries blocked", ansiYellow)
 	case models.LockTypeShare:
-		return "\x1b[34mWrites blocked\x1b[0m"
+		return colorize("Writes blocked", ansiBlue)
 	case models.LockTypeShareUpdateExclusive:
-		return "\x1b[34mWrites delayed\x1b[0m"
+		return colorize("Writes delayed", ansiBlue)
 	default:
-		return "\x1b[32m0 affected\x1b[0m"
+		return colorize("0 affected", ansiGreen)
 	}
 }
 
 // formatExecutionTime formats execution time in a human-readable way
 func formatExecutionTime(seconds float64) string {
 	if seconds < 1 {
-		return "\x1b[32m< 1 second\x1b[0m"
+		return colorize("< 1 second", ansiGreen)
 	} else if seconds < 60 {
-		return fmt.Sprintf("\x1b[32m%.1f seconds\x1b[0m", seconds)
+		return colorize(fmt.Sprintf("%.1f seconds", seconds), ansiGreen)
 	} else if seconds < 300 { // < 5 minutes
 		minutes := seconds / 60.0
-		return fmt.Sprintf("\x1b[33m%.1f minutes\x1b[0m", minutes)
+		return colorize(fmt.Sprintf("%.1f minutes", minutes), ansiYellow)
 	} else {
 		minutes := seconds / 60.0
-		return fmt.Sprintf("\x1b[31m%.1f minutes\x1b[0m", minutes)
+		return colorize(fmt.Sprintf("%.1f minutes", minutes), ansiRed)
 	}
 }
 
 // formatTableSizeInfo formats table size information
 func formatTableSizeInfo(op *models.Operation) string {
 	if op.RequiresRewrite {
-		return "\x1b[31m(full table rewrite needed)\x1b[0m"
+		return colorize("(full table rewrite needed)", ansiRed)
 	}
 	// Generic message since we don't have actual row count in the operation struct
-	return "\x1b[32m(no rewrite needed)\x1b[0m"
+	return colorize("(no rewrite needed)", ansiGreen)
 }
 
 // checkForBreakingChanges checks if operations contain breaking changes

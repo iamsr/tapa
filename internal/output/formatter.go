@@ -73,15 +73,6 @@ func FormatYAML(w io.Writer, result *models.AnalysisResult) error {
 	return encoder.Encode(result)
 }
 
-// formatTableRow creates a table row with borders
-func formatTableRow(columns []string) string {
-	row := "│"
-	for _, col := range columns {
-		row += " " + col + " │"
-	}
-	return row
-}
-
 // FormatBatching outputs the batching result in the specified format
 func FormatBatching(w io.Writer, result *models.BatchResult, format string) error {
 	switch format {

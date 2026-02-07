@@ -152,34 +152,6 @@ func TestFormat_YAML(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestFormatTableRow(t *testing.T) {
-	tests := []struct {
-		name     string
-		columns  []string
-		expected string
-	}{
-		{
-			name:     "simple columns",
-			columns:  []string{"A", "B", "C"},
-			expected: "│ A │ B │ C │",
-		},
-		{
-			name:     "empty column",
-			columns:  []string{"A", "", "C"},
-			expected: "│ A │  │ C │",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatTableRow(tt.columns)
-			// Verify result contains borders
-			assert.Contains(t, result, "│")
-			assert.Contains(t, result, tt.columns[0])
-		})
-	}
-}
-
 // Helper function to create test data
 func createTestResult() *models.AnalysisResult {
 	migration := models.NewMigration("test_migration.sql")
