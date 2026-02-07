@@ -206,20 +206,13 @@ func TestFormatOperationCard(t *testing.T) {
 
 	result := FormatOperationCard(op, 1)
 
-	// Operation card should contain per-operation details
+	// Operation card should contain borderless format with divider header
 	expected := []string{
-		"ALTER_TABLE on users",
+		"─── ALTER_TABLE on users",
 		"SQL:",
-		"Risk Score",
-		"Status:",
-		"Lock Analysis",
-		"Type",
-		"Duration",
-		"Queries",
-		"Time Estimate",
-		"Execution",
-		"Table Size",
-		"Compatibility",
+		"Lock:",
+		"ACCESS_EXCLUSIVE",
+		"Time:",
 		"Backward compatible",
 		"No table rewrite",
 		"Recommendations",
@@ -232,29 +225,12 @@ func TestFormatOperationCard(t *testing.T) {
 		}
 	}
 
-	// Check box borders
-	if !strings.Contains(result, "╭") || !strings.Contains(result, "╮") {
-		t.Errorf("FormatOperationCard() missing box borders")
+	// Should NOT have box borders (borderless design)
+	if strings.Contains(result, "╭") || strings.Contains(result, "╮") {
+		t.Errorf("FormatOperationCard() should not have box borders")
 	}
-
-	// Verify all lines have matching left and right borders
-	lines := strings.Split(result, "\n")
-	for i, line := range lines {
-		stripped := stripAnsi(line)
-		if stripped == "" {
-			continue
-		}
-		runes := []rune(stripped)
-		if i == 0 || i == len(lines)-1 {
-			// Top/bottom borders
-			continue
-		}
-		if runes[0] != '│' {
-			t.Errorf("Line %d missing left border: %q", i, stripped)
-		}
-		if runes[len(runes)-1] != '│' {
-			t.Errorf("Line %d missing right border: %q", i, stripped)
-		}
+	if strings.Contains(result, "╰") || strings.Contains(result, "╯") {
+		t.Errorf("FormatOperationCard() should not have box borders")
 	}
 }
 
@@ -497,9 +473,12 @@ func TestFormatOperationCardNoColor(t *testing.T) {
 		t.Errorf("FormatOperationCard() with NO_COLOR=1 contains ANSI codes:\n%s", result)
 	}
 
-	// Should still contain text content
-	if !strings.Contains(result, "Lock Analysis") {
-		t.Errorf("FormatOperationCard() with NO_COLOR=1 missing 'Lock Analysis'")
+	// Should still contain text content (merged Lock/Time section)
+	if !strings.Contains(result, "Lock:") {
+		t.Errorf("FormatOperationCard() with NO_COLOR=1 missing 'Lock:'")
+	}
+	if !strings.Contains(result, "Time:") {
+		t.Errorf("FormatOperationCard() with NO_COLOR=1 missing 'Time:'")
 	}
 }
 
@@ -591,5 +570,72 @@ func TestFormatOperationCardSQLTruncation(t *testing.T) {
 	// Should contain ellipsis for truncated SQL
 	if !strings.Contains(result, "...") {
 		t.Errorf("FormatOperationCard() should truncate long SQL with '...'")
+	}
+
+	// Should not have box borders
+	if strings.Contains(result, "╭") {
+		t.Errorf("FormatOperationCard() should not have box borders")
+	}
+}
+
+func TestFormatOperationCardTableSize(t *testing.T) {
+	op := &models.Operation{
+		Type:                 models.OperationTypeAddColumn,
+		TableName:            "users",
+		SQL:                  "ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT 'test'",
+		RiskScore:            70,
+		LockType:             models.LockTypeAccessExclusive,
+		LockDurationMS:       100,
+		EstimatedTimeSeconds: 0.1,
+		BackwardCompatible:   true,
+		RequiresRewrite:      true,
+		RowCount:             2400000,
+		TableSizeBytes:       10737418240, // 10 GB
+	}
+
+	result := FormatOperationCard(op, 1)
+
+	// Should display actual row count and size
+	if !strings.Contains(result, "2.4M rows") {
+		t.Errorf("FormatOperationCard() missing row count\nGot:\n%s", result)
+	}
+	if !strings.Contains(result, "10.0 GB") {
+		t.Errorf("FormatOperationCard() missing table size\nGot:\n%s", result)
+	}
+	if !strings.Contains(result, "rewrite needed") {
+		t.Errorf("FormatOperationCard() missing rewrite info\nGot:\n%s", result)
+	}
+}
+
+func TestFormatOperationCardMergedLockTime(t *testing.T) {
+	// Test that lock and time are shown on same line when equal
+	op := &models.Operation{
+		Type:                 models.OperationTypeAddColumn,
+		TableName:            "users",
+		SQL:                  "ALTER TABLE users ADD COLUMN name VARCHAR(255)",
+		RiskScore:            15,
+		LockType:             models.LockTypeAccessExclusive,
+		LockDurationMS:       100,
+		EstimatedTimeSeconds: 0.1,
+		BackwardCompatible:   true,
+		RequiresRewrite:      false,
+	}
+
+	result := FormatOperationCard(op, 1)
+
+	// Should NOT have separate "Lock Analysis" and "Time Estimate" sections
+	if strings.Contains(result, "Lock Analysis") {
+		t.Errorf("FormatOperationCard() should not have separate 'Lock Analysis' section")
+	}
+	if strings.Contains(result, "Time Estimate") {
+		t.Errorf("FormatOperationCard() should not have separate 'Time Estimate' section")
+	}
+
+	// Should have merged Lock: and Time: lines
+	if !strings.Contains(result, "Lock:") {
+		t.Errorf("FormatOperationCard() missing 'Lock:' line")
+	}
+	if !strings.Contains(result, "Time:") {
+		t.Errorf("FormatOperationCard() missing 'Time:' line")
 	}
 }

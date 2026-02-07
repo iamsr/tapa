@@ -39,10 +39,9 @@ func FormatTable(w io.Writer, result *models.AnalysisResult) error {
 		fmt.Fprintln(w)
 
 		// Display individual operation cards
-		for i, op := range migration.Operations {
-			opCard := ui.FormatOperationCard(op, i+1)
-			fmt.Fprintln(w, opCard)
-			fmt.Fprintln(w)
+		for j, op := range migration.Operations {
+			opCard := ui.FormatOperationCard(op, j+1)
+			fmt.Fprint(w, opCard)
 		}
 	}
 

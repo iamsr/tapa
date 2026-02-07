@@ -84,6 +84,16 @@ func emoji(emojiStr, fallback string) string {
 	return fallback
 }
 
+// StepCheck returns a green checkmark for step-by-step progress output.
+func StepCheck() string {
+	return colorize(emoji("✓", "[ok]"), ansiGreen)
+}
+
+// StepWarn returns a yellow warning symbol for step-by-step progress output.
+func StepWarn() string {
+	return colorize(emoji("⚠", "[!]"), ansiYellow)
+}
+
 // DrawBox draws a box with the given content lines
 func DrawBox(title string, lines []string, width int) string {
 	// Validate width - minimum 4 chars for borders + padding
@@ -299,22 +309,34 @@ func FormatSummaryCard(migration *models.Migration) string {
 
 // wrapText wraps text to fit within the given visible width.
 // Each continuation line is indented by the given prefix.
+// Leading whitespace on the first line is preserved.
 func wrapText(text string, maxWidth int, continuationPrefix string) []string {
 	if visibleWidth(text) <= maxWidth {
 		return []string{text}
 	}
 
+	// Preserve leading whitespace from the original text
+	stripped := stripAnsi(text)
+	leadingSpaces := ""
+	for _, r := range stripped {
+		if r == ' ' || r == '\t' {
+			leadingSpaces += string(r)
+		} else {
+			break
+		}
+	}
+
 	var result []string
-	words := strings.Fields(stripAnsi(text))
-	line := ""
+	words := strings.Fields(stripped)
+	line := leadingSpaces
 	for _, word := range words {
 		candidate := line
-		if candidate != "" {
+		if candidate != "" && candidate != leadingSpaces {
 			candidate += " "
 		}
 		candidate += word
 
-		if visibleWidth(candidate) > maxWidth && line != "" {
+		if visibleWidth(candidate) > maxWidth && line != "" && line != leadingSpaces {
 			result = append(result, line)
 			line = continuationPrefix + word
 		} else {
@@ -327,22 +349,34 @@ func wrapText(text string, maxWidth int, continuationPrefix string) []string {
 	return result
 }
 
-// FormatOperationCard creates a bordered card for a single operation
+// FormatOperationCard creates a borderless card for a single operation with
+// a horizontal divider header and indented content sections.
 func FormatOperationCard(op *models.Operation, index int) string {
 	width := 76
-	innerWidth := width - 4 // account for │ + space on each side
 	riskColor := getRiskColor(op.RiskScore)
 
-	var lines []string
+	var result strings.Builder
 
-	// Header: SQL statement (word-wrapped, truncated to 3 lines max)
-	sqlPrefix := "SQL: "
+	// ─── Header divider: ─── ADD_COLUMN on users ─────────────────────
+	title := fmt.Sprintf("%s on %s", op.Type, op.TableName)
+	titleSection := fmt.Sprintf("─── %s ", title)
+	titleVisLen := visibleWidth(titleSection)
+	remaining := width - titleVisLen
+	if remaining < 0 {
+		remaining = 0
+	}
+	result.WriteString(titleSection)
+	result.WriteString(strings.Repeat("─", remaining))
+	result.WriteString("\n")
+
+	// SQL (indented, word-wrapped, max 3 lines)
+	sqlPrefix := "  SQL: "
 	sqlText := sqlPrefix + strings.ReplaceAll(op.SQL, "\n", " ")
-	sqlLines := wrapText(sqlText, innerWidth, "     ")
+	innerWidth := width - 2 // 2-char indent for continuation
+	sqlLines := wrapText(sqlText, innerWidth, "       ")
 	maxSQLLines := 3
 	if len(sqlLines) > maxSQLLines {
 		sqlLines = sqlLines[:maxSQLLines]
-		// Replace end of last line with ellipsis
 		lastLine := sqlLines[maxSQLLines-1]
 		lastVis := visibleWidth(lastLine)
 		if lastVis > innerWidth-3 {
@@ -351,62 +385,79 @@ func FormatOperationCard(op *models.Operation, index int) string {
 		sqlLines[maxSQLLines-1] = lastLine + "..."
 	}
 	for _, sl := range sqlLines {
-		lines = append(lines, sl)
+		result.WriteString(sl)
+		result.WriteString("\n")
 	}
-	lines = append(lines, "")
+	result.WriteString("\n")
 
-	// ── Risk Score ──
-	lines = append(lines, bold("Risk Score"))
-	bar := DrawVisualProgressBar(op.RiskScore, 100, 28, riskColor)
-	lines = append(lines, fmt.Sprintf("%s  %s", bar, colorize(fmt.Sprintf("%d/100", op.RiskScore), riskColor)))
+	// Risk line: compact single-line risk
 	riskLevel := getRiskLevelFromScore(op.RiskScore)
-	lines = append(lines, fmt.Sprintf("Status: %s %s", colorize(riskLevel, riskColor), getStatusIcon(op.RiskScore)))
-	lines = append(lines, "")
+	bar := DrawVisualProgressBar(op.RiskScore, 100, 20, riskColor)
+	result.WriteString(fmt.Sprintf("  %s  %s %s %s\n",
+		bar,
+		colorize(fmt.Sprintf("%d/100", op.RiskScore), riskColor),
+		colorize(riskLevel, riskColor),
+		getStatusIcon(op.RiskScore)))
+	result.WriteString("\n")
 
-	// ── Lock Analysis ──
-	lines = append(lines, bold("Lock Analysis"))
+	// ── Lock & Timing (merged section) ──
 	lockColor := getLockTypeColor(op.LockType)
 	lockDesc := getLockDescription(op.LockType)
-	lines = append(lines, fmt.Sprintf("  ├── Type      %s %s", colorize(string(op.LockType), lockColor), lockDesc))
-	durationStr := formatLockDuration(op.LockDurationMS)
-	lines = append(lines, fmt.Sprintf("  ├── Duration  %s", durationStr))
-	queriesStr := estimateQueriesAffected(op.LockType)
-	lines = append(lines, fmt.Sprintf("  └── Queries   %s", queriesStr))
-	lines = append(lines, "")
+	result.WriteString(fmt.Sprintf("  Lock:  %s %s\n", colorize(string(op.LockType), lockColor), lockDesc))
 
-	// ── Time Estimate ──
-	lines = append(lines, bold("Time Estimate"))
-	execTime := formatExecutionTime(op.EstimatedTimeSeconds)
-	lines = append(lines, fmt.Sprintf("  ├── Execution  %s", execTime))
+	// Queries impact
+	queriesStr := estimateQueriesAffected(op.LockType)
+	result.WriteString(fmt.Sprintf("         %s\n", queriesStr))
+
+	// Duration line: show lock duration and execution time
+	// For most ops they're the same; only show both when different
+	lockDurStr := formatLockDuration(op.LockDurationMS)
+	execTimeStr := formatExecutionTime(op.EstimatedTimeSeconds)
+	lockDurPlain := stripAnsi(lockDurStr)
+	execTimePlain := stripAnsi(execTimeStr)
+
+	if lockDurPlain == execTimePlain {
+		// Same value — just show once as "Time"
+		result.WriteString(fmt.Sprintf("  Time:  %s", execTimeStr))
+	} else {
+		// Different — show both (e.g. CONCURRENTLY: lock=50ms, build=1.3min)
+		result.WriteString(fmt.Sprintf("  Time:  %s (lock held: %s)", execTimeStr, lockDurStr))
+	}
+
+	// Table size info
 	tableSizeInfo := formatTableSizeInfo(op)
-	lines = append(lines, fmt.Sprintf("  └── Table Size %s", tableSizeInfo))
-	lines = append(lines, "")
+	if tableSizeInfo != "" {
+		result.WriteString(fmt.Sprintf(" · %s", tableSizeInfo))
+	}
+	result.WriteString("\n")
+	result.WriteString("\n")
 
 	// ── Compatibility ──
-	lines = append(lines, bold("Compatibility"))
 	if op.BackwardCompatible {
-		lines = append(lines, fmt.Sprintf("  %s Backward compatible", colorize("✓", ansiGreen)))
+		result.WriteString(fmt.Sprintf("  %s Backward compatible\n", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, fmt.Sprintf("  %s May break backward compatibility", colorize("⚠", ansiYellow)))
+		result.WriteString(fmt.Sprintf("  %s May break backward compatibility\n", colorize("⚠", ansiYellow)))
 	}
 	if !op.RequiresRewrite {
-		lines = append(lines, fmt.Sprintf("  %s No table rewrite", colorize("✓", ansiGreen)))
+		result.WriteString(fmt.Sprintf("  %s No table rewrite\n", colorize("✓", ansiGreen)))
 	} else {
-		lines = append(lines, fmt.Sprintf("  %s Requires full table rewrite", colorize("✗", ansiRed)))
+		result.WriteString(fmt.Sprintf("  %s Requires full table rewrite\n", colorize("✗", ansiRed)))
 	}
 
 	// ── Recommendations ──
 	if len(op.Recommendations) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, bold("Recommendations"))
+		result.WriteString("\n")
+		result.WriteString(fmt.Sprintf("  %s\n", bold("Recommendations")))
 		for _, rec := range op.Recommendations {
-			wrapped := wrapText("  • "+rec, innerWidth, "    ")
-			lines = append(lines, wrapped...)
+			wrapped := wrapText("    • "+rec, innerWidth, "      ")
+			for _, line := range wrapped {
+				result.WriteString(line)
+				result.WriteString("\n")
+			}
 		}
 	}
 
-	title := fmt.Sprintf("%s on %s", op.Type, op.TableName)
-	return DrawBox(title, lines, width)
+	return result.String()
 }
 
 // calculateSummary computes summary statistics from a migration
@@ -624,11 +675,46 @@ func formatExecutionTime(seconds float64) string {
 
 // formatTableSizeInfo formats table size information
 func formatTableSizeInfo(op *models.Operation) string {
-	if op.RequiresRewrite {
-		return colorize("(full table rewrite needed)", ansiRed)
+	if op.RowCount > 0 && op.TableSizeBytes > 0 {
+		rows := formatRowCount(op.RowCount)
+		size := formatByteSize(op.TableSizeBytes)
+		if op.RequiresRewrite {
+			return colorize(fmt.Sprintf("%s rows (%s) · rewrite needed", rows, size), ansiRed)
+		}
+		return fmt.Sprintf("%s rows (%s)", rows, size)
 	}
-	// Generic message since we don't have actual row count in the operation struct
-	return colorize("(no rewrite needed)", ansiGreen)
+	if op.RequiresRewrite {
+		return colorize("rewrite needed", ansiRed)
+	}
+	return ""
+}
+
+// formatRowCount formats a row count in a human-readable way (e.g. 1.0M, 500K)
+func formatRowCount(count int64) string {
+	switch {
+	case count >= 1_000_000_000:
+		return fmt.Sprintf("%.1fB", float64(count)/1_000_000_000)
+	case count >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(count)/1_000_000)
+	case count >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(count)/1_000)
+	default:
+		return fmt.Sprintf("%d", count)
+	}
+}
+
+// formatByteSize formats bytes in a human-readable way (e.g. 10.5 GB, 256 MB)
+func formatByteSize(bytes int64) string {
+	switch {
+	case bytes >= 1024*1024*1024:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/(1024*1024*1024))
+	case bytes >= 1024*1024:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/(1024*1024))
+	case bytes >= 1024:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/1024)
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
 }
 
 // checkForBreakingChanges checks if operations contain breaking changes

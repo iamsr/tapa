@@ -16,10 +16,14 @@ func TestE2E_PostgreSQL_Analysis(t *testing.T) {
 	}
 
 	// Run analysis on PostgreSQL migration
+	// Use Output() (stdout only) since progress messages go to stderr
 	cmd = exec.Command("../../tapa", "analyze", "../../examples/001_complex_migration.sql", "--dry-run", "--format", "json")
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("Command failed: %v\n%s", err, output)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("Command failed: %v\nstderr: %s", err, exitErr.Stderr)
+		}
+		t.Fatalf("Command failed: %v", err)
 	}
 
 	result := string(output)
@@ -47,10 +51,14 @@ func TestE2E_MySQL_Analysis(t *testing.T) {
 	}
 
 	// Run analysis on MySQL migration
+	// Use Output() (stdout only) since progress messages go to stderr
 	cmd = exec.Command("../../tapa", "analyze", "../../examples/mysql_migration.sql", "--dry-run", "--db-type", "mysql", "--format", "json")
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("Command failed: %v\n%s", err, output)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("Command failed: %v\nstderr: %s", err, exitErr.Stderr)
+		}
+		t.Fatalf("Command failed: %v", err)
 	}
 
 	result := string(output)
@@ -83,16 +91,20 @@ func TestE2E_Comprehensive_Analysis(t *testing.T) {
 	}
 
 	// Run comprehensive analysis
+	// Use Output() (stdout only) since progress messages go to stderr
 	cmd = exec.Command("../../tapa", "analyze", "../../examples/001_complex_migration.sql", "--dry-run", "--comprehensive")
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("Command failed: %v\n%s", err, output)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("Command failed: %v\nstderr: %s", err, exitErr.Stderr)
+		}
+		t.Fatalf("Command failed: %v", err)
 	}
 
 	result := string(output)
 
 	// Check for comprehensive features (detailed output with operation cards)
-	if !strings.Contains(result, "Lock Analysis") && !strings.Contains(result, "ANALYSIS RESULTS") {
+	if !strings.Contains(result, "Lock:") && !strings.Contains(result, "ANALYSIS RESULTS") {
 		t.Error("Expected comprehensive analysis to contain detailed operation information")
 	}
 

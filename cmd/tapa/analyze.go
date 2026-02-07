@@ -95,29 +95,33 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// Get parser
-	sqlParser, err := parser.GetParser(cfg.Database.Type)
-	if err != nil {
-		return fmt.Errorf("failed to get parser: %w", err)
-	}
-
-	// Get introspector (optional in dry-run mode)
+	// Step 1: Database connection
 	var intr db.Introspector
 	if !opts.dryRun && cfg.Database.URL != "" {
+		stepPrint(os.Stderr, "Connecting to database...")
 		intr, err = introspector.GetIntrospector(cfg.Database.Type, cfg.Database.URL)
 		if err != nil {
-			// Log warning but continue
-			fmt.Fprintf(os.Stderr, "Warning: failed to get introspector: %v\n", err)
+			stepWarn(os.Stderr, "Could not create introspector: %v", err)
 		}
 		if intr != nil {
 			ctx := context.Background()
 			if err := intr.Connect(ctx); err != nil {
-				// Log warning but continue
-				fmt.Fprintf(os.Stderr, "Warning: failed to connect to database: %v\n", err)
+				stepWarn(os.Stderr, "Could not connect to database: %v", err)
+				intr = nil
 			} else {
 				defer intr.Close()
+				dbLabel := strings.ToUpper(cfg.Database.Type[:1]) + cfg.Database.Type[1:]
+				stepDone(os.Stderr, "Connected to %s", dbLabel)
 			}
 		}
+	} else if opts.dryRun {
+		stepDone(os.Stderr, "Dry-run mode (no database connection)")
+	}
+
+	// Get parser
+	sqlParser, err := parser.GetParser(cfg.Database.Type)
+	if err != nil {
+		return fmt.Errorf("failed to get parser: %w", err)
 	}
 
 	// Find migration files
@@ -130,12 +134,9 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		return fmt.Errorf("no migration files found in: %s", filePath)
 	}
 
-	// Print verbose info
-	if opts.verbose {
-		fmt.Fprintf(os.Stderr, "Found %d migration file(s) to analyze\n", len(files))
-	}
+	// Step 2: Parse migration files
+	stepPrint(os.Stderr, "Parsing migration file(s)...")
 
-	// Parse migrations
 	result := &models.AnalysisResult{
 		Migrations:      make([]*models.Migration, 0),
 		DatabaseType:    cfg.Database.Type,
@@ -144,7 +145,6 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 	}
 
 	// Get analyzer for risk assessment
-	// Even in dry-run mode, we can provide basic lock analysis with conservative estimates
 	var anlzr analyzer.Analyzer
 	var pgAnalyzer *postgresanalyzer.Analyzer
 	var mysqlAnalyzer *mysqlanalyzer.Analyzer
@@ -160,68 +160,65 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		fmt.Fprintf(os.Stderr, "Warning: unsupported database type: %s\n", cfg.Database.Type)
 	}
 
-	// Create progress bar for file parsing
-	progress := ui.NewProgressBar(os.Stderr, len(files), "Parsing files", opts.verbose)
-
 	ctx := context.Background()
 	operationCount := 0
 	for _, file := range files {
 		migration, err := sqlParser.ParseFile(file)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("failed to parse %s: %w", file, err))
-			progress.Increment()
 			continue
 		}
 
-		// Analyze each operation for production impact
-		if anlzr != nil {
-			// Check if we're using comprehensive analysis (Phase 2 features)
+		operationCount += len(migration.Operations)
+		result.Migrations = append(result.Migrations, migration)
+	}
+
+	if operationCount == 1 {
+		stepDone(os.Stderr, "Found %d statement", operationCount)
+	} else {
+		stepDone(os.Stderr, "Found %d statements", operationCount)
+	}
+
+	// Step 3: Analyze operations
+	if anlzr != nil && operationCount > 0 {
+		stepPrint(os.Stderr, "Analyzing operations...")
+
+		for _, migration := range result.Migrations {
 			if opts.comprehensive {
-				// Use database-specific comprehensive analysis
 				if pgAnalyzer != nil {
 					analysisOpts := postgresanalyzer.DefaultAnalysisOptions()
 					for _, op := range migration.Operations {
 						if err := pgAnalyzer.AnalyzeWithEnhancements(ctx, op, analysisOpts); err != nil {
-							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 						}
 					}
 				} else if mysqlAnalyzer != nil {
 					analysisOpts := mysqlanalyzer.DefaultAnalysisOptions()
 					for _, op := range migration.Operations {
 						if err := mysqlAnalyzer.AnalyzeWithEnhancements(ctx, op, analysisOpts); err != nil {
-							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 						}
 					}
 				} else {
-					// Fallback to basic analysis for other databases
 					for _, op := range migration.Operations {
 						if err := anlzr.Analyze(ctx, op); err != nil {
-							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 						}
 					}
 				}
 			} else {
-				// Use basic analysis
 				for _, op := range migration.Operations {
 					if err := anlzr.Analyze(ctx, op); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation in %s: %v\n", file, err)
+						fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 					}
 				}
 			}
 		}
 
-		operationCount += len(migration.Operations)
-		result.Migrations = append(result.Migrations, migration)
-		progress.Increment()
+		stepDone(os.Stderr, "Analysis complete")
 	}
 
-	// Finish progress bar
-	progress.Finish()
-
-	// Print summary statistics in verbose mode
-	if opts.verbose {
-		fmt.Fprintf(os.Stderr, "Analysis complete! Found %d operation(s) across %d file(s)\n", operationCount, len(result.Migrations))
-	}
+	fmt.Fprintln(os.Stderr) // blank line before results
 
 	// If we have errors and no successful migrations, return error
 	if len(result.Errors) > 0 && len(result.Migrations) == 0 {
@@ -239,6 +236,24 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 	}
 
 	return nil
+}
+
+// stepPrint prints a progress step message to stderr
+func stepPrint(w *os.File, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintf(w, "  %s\n", msg)
+}
+
+// stepDone prints a completed step with a checkmark to stderr
+func stepDone(w *os.File, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintf(w, "  %s %s\n", ui.StepCheck(), msg)
+}
+
+// stepWarn prints a warning step to stderr
+func stepWarn(w *os.File, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintf(w, "  %s %s\n", ui.StepWarn(), msg)
 }
 
 // detectDBType attempts to detect database type from connection URL

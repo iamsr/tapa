@@ -53,6 +53,8 @@ type Operation struct {
 	RiskScore            int
 	BackwardCompatible   bool
 	Recommendations      []string
+	RowCount             int64                 `json:"row_count,omitempty"`
+	TableSizeBytes       int64                 `json:"table_size_bytes,omitempty"`
 	Dependencies         []Dependency          `json:"dependencies,omitempty"`
 	TimeBreakdown        *TimeBreakdown        `json:"time_breakdown,omitempty"`
 	Alternatives         []AlternativeStrategy `json:"alternatives,omitempty"`

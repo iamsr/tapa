@@ -26,14 +26,14 @@ func TestFormatTable(t *testing.T) {
 	assert.Contains(t, output, "Risk Breakdown:")
 	assert.Contains(t, output, "Compatibility:")
 
-	// Check for operation card
+	// Check for operation card (borderless format)
 	assert.Contains(t, output, "ADD_COLUMN on users")
 	assert.Contains(t, output, "SQL:")
-	assert.Contains(t, output, "Lock Analysis")
-	assert.Contains(t, output, "Time Estimate")
+	assert.Contains(t, output, "Lock:")
+	assert.Contains(t, output, "Time:")
 	assert.Contains(t, output, "email")
 
-	// Check for box drawing characters (new card style)
+	// Summary card still has box drawing characters
 	assert.Contains(t, output, "╭")
 	assert.Contains(t, output, "╮")
 	assert.Contains(t, output, "╰")

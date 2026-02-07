@@ -71,16 +71,22 @@ func (a *Analyzer) Analyze(ctx context.Context, op *models.Operation) error {
 		}
 	}
 
-	// Step 3: Estimate duration
+	// Step 3: Store table stats on operation
+	if stats != nil {
+		op.RowCount = stats.RowCount
+		op.TableSizeBytes = stats.TableSizeBytes
+	}
+
+	// Step 4: Estimate duration
 	a.estimateDuration(op, stats)
 
-	// Step 4: Calculate risk score
+	// Step 5: Calculate risk score
 	a.calculateRiskScore(op, stats)
 
-	// Step 5: Determine backward compatibility
+	// Step 6: Determine backward compatibility
 	a.setBackwardCompatibility(op)
 
-	// Step 6: Generate recommendations
+	// Step 7: Generate recommendations
 	a.generateRecommendations(op, stats)
 
 	return nil
