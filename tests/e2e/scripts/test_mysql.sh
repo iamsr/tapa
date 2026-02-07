@@ -13,8 +13,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 E2E_DIR="$PROJECT_ROOT/tests/e2e"
 TAPA_BIN="$PROJECT_ROOT/tapa"
 
-# MySQL connection  
-MYSQL_URL="testuser:testpass@tcp(localhost:3307)/testdb"
+# MySQL connection (tls=false required for MySQL 8.0 without SSL certificates)
+MYSQL_URL="testuser:testpass@tcp(localhost:3307)/testdb?tls=false"
 
 echo -e "${BLUE}Testing MySQL integration...${NC}"
 
