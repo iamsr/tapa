@@ -61,7 +61,7 @@ cp "$E2E_DIR/fixtures/postgres_test_migration.sql" "$TEMP_DIR/migration1.sql"
 cp "$E2E_DIR/fixtures/postgres_test_migration.sql" "$TEMP_DIR/migration2.sql"
 cp "$E2E_DIR/fixtures/postgres_test_migration.sql" "$TEMP_DIR/migration3.sql"
 
-OUTPUT=$("$TAPA_BIN" analyze "$TEMP_DIR"/*.sql --dry-run --verbose 2>&1)
+OUTPUT=$("$TAPA_BIN" analyze "$TEMP_DIR" --dry-run --verbose 2>&1)
 STATUS=$?
 
 # Cleanup

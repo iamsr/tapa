@@ -20,10 +20,10 @@ SELECT
     CURRENT_TIMESTAMP - (random() * interval '365 days')
 FROM generate_series(1, 100000) i;
 
--- Generate 100,000 orders
+-- Generate 100,000 orders (with valid foreign keys)
 INSERT INTO orders (user_id, total_amount, status, created_at)
 SELECT 
-    (random() * 100000 + 1)::integer,
+    ((random() * 99999)::integer + 1),  -- Generates 1-100000
     (random() * 5000)::numeric(10,2),
     CASE (random() * 3)::integer
         WHEN 0 THEN 'pending'

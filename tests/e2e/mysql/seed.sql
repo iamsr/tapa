@@ -47,7 +47,7 @@ WITH RECURSIVE nums AS (
     SELECT n + 1 FROM nums WHERE n < 100000
 )
 SELECT 
-    FLOOR(RAND() * 100000 + 1),
+    FLOOR(RAND() * 100000) + 1,  -- Generates 1-100000
     ROUND(RAND() * 5000, 2),
     CASE FLOOR(RAND() * 3)
         WHEN 0 THEN 'pending'
