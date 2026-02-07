@@ -150,10 +150,9 @@ func FormatSummaryCard(migration *models.Migration) string {
 	// Empty line
 	lines = append(lines, "")
 
-	// Overall progress bar
-	completedOps := 0 // For summary card, we show total operations as "to be done"
-	progressBar := DrawVisualProgressBar(completedOps, summary.TotalOps, 30, "\x1b[32m")
-	lines = append(lines, fmt.Sprintf("Progress: %s %d/%d ops", progressBar, completedOps, summary.TotalOps))
+	// Overall risk progress bar (0-100 scale)
+	progressBar := DrawVisualProgressBar(summary.MaxRiskScore, 100, 20, riskColor)
+	lines = append(lines, fmt.Sprintf("Progress: %s %d/100", progressBar, summary.MaxRiskScore))
 
 	// Estimated time
 	lines = append(lines, fmt.Sprintf("Est. Time: %s", formatDuration(summary.TotalTime)))
