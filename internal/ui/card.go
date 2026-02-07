@@ -242,7 +242,7 @@ type MigrationSummary struct {
 // Per-operation details (lock, time) belong in FormatOperationCard instead.
 func FormatSummaryCard(migration *models.Migration) string {
 	summary := calculateSummary(migration)
-	width := 60
+	width := 76
 
 	riskColor := getRiskColor(summary.MaxRiskScore)
 	riskLevel := getRiskLevelFromScore(summary.MaxRiskScore)
@@ -329,16 +329,27 @@ func wrapText(text string, maxWidth int, continuationPrefix string) []string {
 
 // FormatOperationCard creates a bordered card for a single operation
 func FormatOperationCard(op *models.Operation, index int) string {
-	width := 60
+	width := 76
 	innerWidth := width - 4 // account for │ + space on each side
 	riskColor := getRiskColor(op.RiskScore)
 
 	var lines []string
 
-	// Header: SQL statement (word-wrapped)
+	// Header: SQL statement (word-wrapped, truncated to 3 lines max)
 	sqlPrefix := "SQL: "
-	sqlText := sqlPrefix + op.SQL
+	sqlText := sqlPrefix + strings.ReplaceAll(op.SQL, "\n", " ")
 	sqlLines := wrapText(sqlText, innerWidth, "     ")
+	maxSQLLines := 3
+	if len(sqlLines) > maxSQLLines {
+		sqlLines = sqlLines[:maxSQLLines]
+		// Replace end of last line with ellipsis
+		lastLine := sqlLines[maxSQLLines-1]
+		lastVis := visibleWidth(lastLine)
+		if lastVis > innerWidth-3 {
+			lastLine = truncateWithAnsi(lastLine, innerWidth-3)
+		}
+		sqlLines[maxSQLLines-1] = lastLine + "..."
+	}
 	for _, sl := range sqlLines {
 		lines = append(lines, sl)
 	}
@@ -595,7 +606,11 @@ func estimateQueriesAffected(lockType models.LockType) string {
 // formatExecutionTime formats execution time in a human-readable way
 func formatExecutionTime(seconds float64) string {
 	if seconds < 1 {
-		return colorize("< 1 second", ansiGreen)
+		ms := int(seconds * 1000)
+		if ms < 10 {
+			return colorize("< 10ms", ansiGreen)
+		}
+		return colorize(fmt.Sprintf("%dms", ms), ansiGreen)
 	} else if seconds < 60 {
 		return colorize(fmt.Sprintf("%.1f seconds", seconds), ansiGreen)
 	} else if seconds < 300 { // < 5 minutes

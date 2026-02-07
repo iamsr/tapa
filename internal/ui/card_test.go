@@ -526,3 +526,70 @@ func TestFormatSummaryCardNoEmoji(t *testing.T) {
 		t.Errorf("FormatSummaryCard() with TAPA_NO_EMOJI=1 missing emoji fallbacks")
 	}
 }
+
+func TestFormatExecutionTimeMilliseconds(t *testing.T) {
+	// Save and restore env
+	origNoColor := os.Getenv("NO_COLOR")
+	origTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("NO_COLOR", origNoColor)
+		os.Setenv("TERM", origTerm)
+	}()
+	os.Setenv("NO_COLOR", "1")
+	os.Setenv("TERM", "xterm-256color")
+
+	tests := []struct {
+		name    string
+		seconds float64
+		want    string
+	}{
+		{"very fast", 0.005, "< 10ms"},
+		{"50ms", 0.05, "50ms"},
+		{"100ms", 0.1, "100ms"},
+		{"200ms", 0.2, "200ms"},
+		{"500ms", 0.5, "500ms"},
+		{"1 second", 1.0, "1.0 seconds"},
+		{"5 seconds", 5.0, "5.0 seconds"},
+		{"2 minutes", 120.0, "2.0 minutes"},
+		{"10 minutes", 600.0, "10.0 minutes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatExecutionTime(tt.seconds)
+			if got != tt.want {
+				t.Errorf("formatExecutionTime(%v) = %q, want %q", tt.seconds, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatOperationCardSQLTruncation(t *testing.T) {
+	longSQL := "ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL DEFAULT 'test@example.com' " +
+		"CONSTRAINT email_check CHECK (email LIKE '%@%') CONSTRAINT email_unique UNIQUE (email) " +
+		"WITH (fillfactor=80) TABLESPACE fast_storage;"
+
+	op := &models.Operation{
+		Type:                 models.OperationTypeAddColumn,
+		TableName:            "users",
+		SQL:                  longSQL,
+		RiskScore:            15,
+		LockType:             models.LockTypeAccessExclusive,
+		LockDurationMS:       100,
+		EstimatedTimeSeconds: 0.1,
+		BackwardCompatible:   true,
+		RequiresRewrite:      false,
+	}
+
+	result := FormatOperationCard(op, 1)
+
+	// Should contain the SQL start
+	if !strings.Contains(result, "SQL:") {
+		t.Errorf("FormatOperationCard() missing SQL prefix")
+	}
+
+	// Should contain ellipsis for truncated SQL
+	if !strings.Contains(result, "...") {
+		t.Errorf("FormatOperationCard() should truncate long SQL with '...'")
+	}
+}

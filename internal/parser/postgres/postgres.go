@@ -3,9 +3,10 @@ package postgres
 import (
 	"fmt"
 	"os"
+	"strings"
 
-	pg_query "github.com/pganalyze/pg_query_go/v5"
 	"github.com/iamsr/tapa/pkg/models"
+	pg_query "github.com/pganalyze/pg_query_go/v5"
 )
 
 // Parser handles PostgreSQL DDL parsing
@@ -62,21 +63,71 @@ func (p *Parser) ParseFile(filePath string) (*models.Migration, error) {
 
 // parseStatement converts a pg_query statement to an Operation
 func (p *Parser) parseStatement(stmt *pg_query.RawStmt, originalSQL string) (*models.Operation, error) {
+	// Extract individual statement text using StmtLocation and StmtLen
+	stmtSQL := extractStatementSQL(stmt, originalSQL)
+
 	node := stmt.Stmt
 
 	switch n := node.Node.(type) {
 	case *pg_query.Node_AlterTableStmt:
-		return p.parseAlterTable(n.AlterTableStmt, originalSQL)
+		return p.parseAlterTable(n.AlterTableStmt, stmtSQL)
 	case *pg_query.Node_CreateStmt:
-		return p.parseCreateTable(n.CreateStmt, originalSQL)
+		return p.parseCreateTable(n.CreateStmt, stmtSQL)
 	case *pg_query.Node_DropStmt:
-		return p.parseDropStatement(n.DropStmt, originalSQL)
+		return p.parseDropStatement(n.DropStmt, stmtSQL)
 	case *pg_query.Node_IndexStmt:
-		return p.parseCreateIndex(n.IndexStmt, originalSQL)
+		return p.parseCreateIndex(n.IndexStmt, stmtSQL)
 	default:
 		// Not a DDL statement we care about
 		return nil, nil
 	}
+}
+
+// extractStatementSQL extracts the individual SQL statement text from the
+// full SQL string using the statement's byte location and length.
+// It strips leading comments and whitespace to return only the DDL statement.
+func extractStatementSQL(stmt *pg_query.RawStmt, fullSQL string) string {
+	start := int(stmt.StmtLocation)
+	if start < 0 || start >= len(fullSQL) {
+		return fullSQL
+	}
+
+	var stmtSQL string
+	if stmt.StmtLen > 0 {
+		end := start + int(stmt.StmtLen)
+		if end > len(fullSQL) {
+			end = len(fullSQL)
+		}
+		stmtSQL = fullSQL[start:end]
+	} else {
+		// StmtLen == 0 means "until end of string" (last statement)
+		stmtSQL = fullSQL[start:]
+	}
+
+	stmtSQL = strings.TrimSpace(stmtSQL)
+
+	// Strip leading SQL comments (-- line comments and /* block comments */)
+	for {
+		if strings.HasPrefix(stmtSQL, "--") {
+			// Skip to end of line
+			if idx := strings.Index(stmtSQL, "\n"); idx >= 0 {
+				stmtSQL = strings.TrimSpace(stmtSQL[idx+1:])
+			} else {
+				break // comment is the entire remaining text
+			}
+		} else if strings.HasPrefix(stmtSQL, "/*") {
+			// Skip to end of block comment
+			if idx := strings.Index(stmtSQL, "*/"); idx >= 0 {
+				stmtSQL = strings.TrimSpace(stmtSQL[idx+2:])
+			} else {
+				break // unclosed block comment
+			}
+		} else {
+			break
+		}
+	}
+
+	return stmtSQL
 }
 
 // parseAlterTable handles ALTER TABLE statements

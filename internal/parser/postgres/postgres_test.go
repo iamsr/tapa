@@ -1,11 +1,12 @@
 package postgres
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/iamsr/tapa/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/iamsr/tapa/pkg/models"
 )
 
 func TestParser_Parse_AddColumn(t *testing.T) {
@@ -20,7 +21,9 @@ func TestParser_Parse_AddColumn(t *testing.T) {
 	op := ops[0]
 	assert.Equal(t, models.OperationTypeAddColumn, op.Type)
 	assert.Equal(t, "users", op.TableName)
-	assert.Contains(t, op.SQL, "ADD COLUMN email")
+	assert.Contains(t, op.SQL, "ALTER TABLE users ADD COLUMN email VARCHAR(255)")
+	// Verify it's just this statement, not an entire multi-statement file
+	assert.NotContains(t, op.SQL, "CREATE INDEX")
 }
 
 func TestParser_Parse_DropColumn(t *testing.T) {
@@ -176,12 +179,19 @@ func TestParser_Parse_MultipleStatements(t *testing.T) {
 
 	assert.Equal(t, models.OperationTypeAddColumn, ops[0].Type)
 	assert.Equal(t, "users", ops[0].TableName)
+	// Verify individual statement SQL is extracted, not the full file
+	assert.Contains(t, ops[0].SQL, "ALTER TABLE users ADD COLUMN email VARCHAR(255)")
+	assert.NotContains(t, ops[0].SQL, "CREATE INDEX")
 
 	assert.Equal(t, models.OperationTypeCreateIndex, ops[1].Type)
 	assert.Equal(t, "users", ops[1].TableName)
+	assert.Contains(t, ops[1].SQL, "CREATE INDEX idx_users_email ON users(email)")
+	assert.NotContains(t, ops[1].SQL, "ALTER TABLE")
 
 	assert.Equal(t, models.OperationTypeDropColumn, ops[2].Type)
 	assert.Equal(t, "posts", ops[2].TableName)
+	assert.Contains(t, ops[2].SQL, "ALTER TABLE posts DROP COLUMN author")
+	assert.NotContains(t, ops[2].SQL, "ADD COLUMN email")
 }
 
 func TestParser_Parse_InvalidSQL(t *testing.T) {
@@ -211,6 +221,41 @@ func TestParser_Parse_CommentsInSQL(t *testing.T) {
 
 	assert.Equal(t, models.OperationTypeAddColumn, ops[0].Type)
 	assert.Equal(t, models.OperationTypeCreateIndex, ops[1].Type)
+
+	// Each operation should have only its own SQL, not the entire file
+	assert.NotContains(t, ops[0].SQL, "CREATE INDEX")
+	assert.NotContains(t, ops[1].SQL, "ADD COLUMN")
+}
+
+// TestParser_Parse_MultiStatementSQLIsolation verifies that when parsing a file
+// with multiple statements, each operation's SQL only contains its own statement.
+// This was a critical bug: the analyzer uses op.SQL for pattern matching (DEFAULT,
+// CONCURRENTLY, NOT NULL, etc.), and passing the entire file caused false matches.
+func TestParser_Parse_MultiStatementSQLIsolation(t *testing.T) {
+	p := NewParser()
+
+	sql := `
+		-- This migration has a DEFAULT on one statement only
+		ALTER TABLE users ADD COLUMN email VARCHAR(255);
+		ALTER TABLE users ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active';
+		CREATE INDEX idx_users_email ON users(email);
+	`
+
+	ops, err := p.Parse(sql)
+	require.NoError(t, err)
+	require.Len(t, ops, 3)
+
+	// First ADD COLUMN should NOT contain DEFAULT
+	assert.NotContains(t, strings.ToLower(ops[0].SQL), "default",
+		"op[0] should not contain DEFAULT from another statement")
+
+	// Second ADD COLUMN should contain DEFAULT
+	assert.Contains(t, strings.ToLower(ops[1].SQL), "default",
+		"op[1] should contain its own DEFAULT clause")
+
+	// CREATE INDEX should not contain DEFAULT or ADD COLUMN
+	assert.NotContains(t, strings.ToLower(ops[2].SQL), "default")
+	assert.NotContains(t, strings.ToLower(ops[2].SQL), "add column")
 }
 
 func TestParser_Parse_SchemaQualifiedTable(t *testing.T) {
