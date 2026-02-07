@@ -94,3 +94,89 @@ func TestProgressBarTiming(t *testing.T) {
 		t.Errorf("Expected output to show elapsed time, got: %s", output)
 	}
 }
+
+func TestDrawVisualProgressBar(t *testing.T) {
+	tests := []struct {
+		name      string
+		completed int
+		total     int
+		width     int
+		fillColor string
+		wantFull  int // number of filled blocks
+		wantEmpty int // number of empty blocks
+	}{
+		{
+			name:      "50% progress",
+			completed: 5,
+			total:     10,
+			width:     10,
+			fillColor: "",
+			wantFull:  5,
+			wantEmpty: 5,
+		},
+		{
+			name:      "100% progress",
+			completed: 10,
+			total:     10,
+			width:     10,
+			fillColor: "",
+			wantFull:  10,
+			wantEmpty: 0,
+		},
+		{
+			name:      "0% progress",
+			completed: 0,
+			total:     10,
+			width:     10,
+			fillColor: "",
+			wantFull:  0,
+			wantEmpty: 10,
+		},
+		{
+			name:      "with color",
+			completed: 3,
+			total:     10,
+			width:     10,
+			fillColor: "\x1b[32m",
+			wantFull:  3,
+			wantEmpty: 7,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DrawVisualProgressBar(tt.completed, tt.total, tt.width, tt.fillColor)
+
+			// Strip ANSI codes for counting
+			stripped := stripAnsiForTest(result)
+
+			// Count filled and empty blocks
+			fullCount := strings.Count(stripped, "█")
+			emptyCount := strings.Count(stripped, "░")
+
+			if fullCount != tt.wantFull {
+				t.Errorf("DrawVisualProgressBar() filled blocks = %d, want %d", fullCount, tt.wantFull)
+			}
+			if emptyCount != tt.wantEmpty {
+				t.Errorf("DrawVisualProgressBar() empty blocks = %d, want %d", emptyCount, tt.wantEmpty)
+			}
+
+			// Check total width (count runes, not bytes)
+			runeCount := len([]rune(stripped))
+			if runeCount != tt.width {
+				t.Errorf("DrawVisualProgressBar() width = %d, want %d", runeCount, tt.width)
+			}
+		})
+	}
+}
+
+// stripAnsiForTest removes ANSI codes for testing
+func stripAnsiForTest(s string) string {
+	// Simple ANSI stripping for tests
+	result := s
+	result = strings.ReplaceAll(result, "\x1b[0m", "")
+	result = strings.ReplaceAll(result, "\x1b[32m", "")
+	result = strings.ReplaceAll(result, "\x1b[33m", "")
+	result = strings.ReplaceAll(result, "\x1b[31m", "")
+	return result
+}

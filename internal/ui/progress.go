@@ -70,3 +70,33 @@ func (p *ProgressBar) Finish() {
 		p.total,
 		elapsed.Seconds())
 }
+
+// DrawVisualProgressBar creates a visual progress bar string
+func DrawVisualProgressBar(completed int, total int, width int, fillColor string) string {
+	if total <= 0 {
+		return ""
+	}
+
+	// Calculate filled portion
+	filled := (completed * width) / total
+	if filled > width {
+		filled = width
+	}
+
+	// Build progress bar
+	bar := ""
+	for i := 0; i < width; i++ {
+		if i < filled {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+
+	// Apply color if provided
+	if fillColor != "" {
+		bar = fillColor + bar + "\x1b[0m"
+	}
+
+	return bar
+}

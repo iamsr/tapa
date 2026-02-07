@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/iamsr/tapa/internal/ui"
 	"github.com/iamsr/tapa/pkg/models"
 	"gopkg.in/yaml.v3"
 )
@@ -32,6 +33,11 @@ func FormatTable(w io.Writer, result *models.AnalysisResult) error {
 	}
 
 	for _, migration := range result.Migrations {
+		// Display summary card at the top
+		summaryCard := ui.FormatSummaryCard(migration)
+		fmt.Fprintln(w, summaryCard)
+		fmt.Fprintln(w)
+
 		fmt.Fprintf(w, "\nMigration Analysis: %s\n", migration.FilePath)
 		fmt.Fprintln(w, strings.Repeat("=", 80))
 
