@@ -72,9 +72,39 @@ tapa analyze migrations/ --db-type mysql --dry-run
 
 **Human-readable (default):**
 
+TAPA provides beautiful, color-coded output with visual summary cards:
+
 ```bash
 tapa analyze migrations/001_migration.sql --db $DATABASE_URL
 ```
+
+Example output:
+
+```
+╭─ 📊 Migration Summary ────────────────────────────────────────────╮
+│ 🟠 Status: HIGH                                                    │
+│                                                                    │
+│ Progress: ██████████████████░░ 70/100                            │
+│ Est. Time: 8.1m                                                    │
+│                                                                    │
+│ Risk Breakdown:                                                    │
+│   ├── Low      0                                                   │
+│   ├── Medium ▪ 1                                                   │
+│   ├── High   ▪▪▪▪ 4                                                │
+│   └── Critical  0                                                  │
+│                                                                    │
+│ Compatibility:                                                     │
+│   ✓ All operations backward compatible (5/5)                     │
+│                                                                    │
+│ ⚠️  HIGH RISK: Test thoroughly in staging                         │
+╰────────────────────────────────────────────────────────────────────╯
+```
+
+Features:
+- Visual progress bars with risk-based coloring
+- Tree-style risk breakdown with operation counts
+- Emoji status indicators for quick assessment
+- Compatibility checks at a glance
 
 **JSON (for CI/CD):**
 
@@ -156,6 +186,7 @@ migration-analysis:
 
 ## Documentation
 
+- **[Architecture Guide](docs/architecture.md)** - Comprehensive system design, algorithms, and extension points
 - [Migration Batching Guide](docs/batching-guide.md) - Safer incremental deployment strategies
 - [MySQL Support Guide](docs/mysql-support.md) - MySQL-specific features and pt-osc integration
 - [GitHub Actions Setup](docs/github-action-usage.md) - Automated PR analysis
@@ -165,15 +196,22 @@ Full documentation available in [docs/](docs/).
 
 ## Architecture
 
+TAPA uses a multi-stage pipeline architecture for comprehensive migration analysis:
+
 ```
 cmd/tapa/              # CLI entry point
 internal/
-  parser/             # SQL parsing (PostgreSQL, MySQL)
-  analyzer/           # Lock detection, risk scoring
-  introspector/       # Live database queries
-  db/                 # Database connections
+  parser/             # SQL parsing (PostgreSQL pg_query, MySQL Vitess)
+  analyzer/           # Lock detection, risk scoring, time estimation
+  introspector/       # Live database metadata queries
+  db/                 # Database connection management
+  batcher/            # Risk-based operation grouping
+  ui/                 # Progress bars, summary cards, visual output
+  output/             # Multi-format output (table, JSON, YAML)
 pkg/models/           # Core data structures
 ```
+
+For detailed architecture documentation including data flows, algorithms, and extension points, see the **[Architecture Guide](docs/architecture.md)**.
 
 ## Development
 

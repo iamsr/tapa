@@ -3,6 +3,9 @@
 
 USE testdb;
 
+-- Increase recursion depth for generating 100K rows
+SET SESSION cte_max_recursion_depth = 100000;
+
 -- Clean existing data
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE users;
