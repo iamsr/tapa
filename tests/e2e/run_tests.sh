@@ -95,6 +95,26 @@ for i in {1..60}; do
 done
 echo ""
 
+# Wait for external MySQL connection to be ready (Go driver can be flaky with MySQL 8)
+echo -n "  Verifying external connections"
+MYSQL_URL="testuser:testpass@tcp(127.0.0.1:3307)/testdb?tls=false"
+for i in {1..30}; do
+    # Test actual tapa connection to MySQL - verify row_count is NOT dry-run default
+    ROW_COUNT=$("$PROJECT_ROOT/tapa" analyze "$E2E_DIR/fixtures/mysql_test_migration.sql" --db-type mysql --db "$MYSQL_URL" --format json 2>/dev/null | jq -r '.Migrations[0].Operations[0].row_count // 0')
+    if [ "$ROW_COUNT" != "0" ] && [ "$ROW_COUNT" != "1000000" ] && [ "$ROW_COUNT" != "null" ]; then
+        echo -e " ${GREEN}✓${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 1
+    if [ $i -eq 30 ]; then
+        echo -e " ${RED}✗ Timeout waiting for external MySQL connection${NC}"
+        docker-compose down -v
+        exit 1
+    fi
+done
+echo ""
+
 # Run PostgreSQL E2E test
 echo -e "${YELLOW}[4/10] Running PostgreSQL E2E test...${NC}"
 bash "$E2E_DIR/scripts/test_postgres.sh"

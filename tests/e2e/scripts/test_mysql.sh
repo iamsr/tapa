@@ -13,8 +13,10 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 E2E_DIR="$PROJECT_ROOT/tests/e2e"
 TAPA_BIN="$PROJECT_ROOT/tapa"
 
-# MySQL connection (tls=false required for MySQL 8.0 without SSL certificates)
-MYSQL_URL="testuser:testpass@tcp(localhost:3307)/testdb?tls=false"
+# MySQL connection
+# - Use 127.0.0.1 instead of localhost to avoid IPv6 resolution issues on macOS
+# - tls=false required for MySQL 8.0 without SSL certificates
+MYSQL_URL="testuser:testpass@tcp(127.0.0.1:3307)/testdb?tls=false"
 
 echo -e "${BLUE}Testing MySQL integration...${NC}"
 
@@ -55,7 +57,14 @@ if [ "$OPERATION_COUNT" -lt 3 ]; then
     echo -e "${RED}    ✗ Expected at least 3 operations, got $OPERATION_COUNT${NC}"
     exit 1
 fi
-echo -e "${GREEN}    ✓ Database connection analysis successful${NC}"
+# Verify real database connection by checking row_count is NOT the dry-run default (1M)
+# Real DB has ~100K rows, dry-run defaults to 1M
+ROW_COUNT=$(echo "$OUTPUT" | jq '.Migrations[0].Operations[0].row_count')
+if [ "$ROW_COUNT" = "1000000" ] || [ "$ROW_COUNT" = "null" ]; then
+    echo -e "${RED}    ✗ Database connection failed - got dry-run defaults (row_count: $ROW_COUNT)${NC}"
+    exit 1
+fi
+echo -e "${GREEN}    ✓ Database connection analysis successful (row_count: $ROW_COUNT)${NC}"
 
 # Test 3: Comprehensive analysis with Phase 2 features
 echo -e "${YELLOW}  Test 3: Comprehensive analysis (Phase 2 features)${NC}"

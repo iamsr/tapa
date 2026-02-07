@@ -14,8 +14,9 @@ E2E_DIR="$PROJECT_ROOT/tests/e2e"
 TAPA_BIN="$PROJECT_ROOT/tapa"
 
 # Database connections
-PG_URL="postgresql://testuser:testpass@localhost:5433/testdb"
-MYSQL_URL="mysql://testuser:testpass@localhost:3307/testdb"
+# Use 127.0.0.1 instead of localhost to avoid IPv6 resolution issues on macOS
+PG_URL="postgresql://testuser:testpass@127.0.0.1:5433/testdb"
+MYSQL_URL="testuser:testpass@tcp(127.0.0.1:3307)/testdb?tls=false"
 
 echo -e "${BLUE}Testing batch command...${NC}"
 
