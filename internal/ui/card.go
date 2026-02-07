@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/iamsr/tapa/pkg/models"
 )
@@ -40,8 +41,8 @@ func DrawBox(title string, lines []string, width int) string {
 	result.WriteString(boxTopLeft)
 	if title != "" {
 		titlePadded := " " + title + " "
-		titleLen := len(titlePadded)
-		remainingWidth := width - titleLen - 2
+		titleVisLen := visibleWidth(titlePadded)
+		remainingWidth := width - titleVisLen - 2
 		if remainingWidth < 0 {
 			remainingWidth = 0
 		}
@@ -72,46 +73,87 @@ func DrawBox(title string, lines []string, width int) string {
 	return result.String()
 }
 
-// padOrTruncate pads or truncates a string to the specified width
-// Handles ANSI color codes correctly
-func padOrTruncate(s string, width int) string {
-	// Strip ANSI codes to calculate visible length
-	visibleLen := len(stripAnsi(s))
+// visibleWidth returns the visible character width of a string,
+// ignoring ANSI escape codes and accounting for wide characters (emojis).
+func visibleWidth(s string) int {
+	stripped := ansiRegex.ReplaceAllString(s, "")
+	width := 0
+	for _, r := range stripped {
+		if isWideRune(r) {
+			width += 2
+		} else {
+			width++
+		}
+	}
+	return width
+}
 
-	if visibleLen >= width {
-		// Truncate - need to be careful with ANSI codes
+// isWideRune returns true if the rune is a wide character (takes 2 columns in terminal).
+// This covers emojis and other characters that occupy 2 cells.
+func isWideRune(r rune) bool {
+	// Emoji and symbol ranges that are typically displayed as 2 columns wide
+	// Miscellaneous Symbols and Pictographs, Emoticons, etc.
+	if r >= 0x1F300 && r <= 0x1FAF8 {
+		return true
+	}
+	// Specific wide dingbats/symbols used in our output
+	switch r {
+	case 0x2728: // ✨
+		return true
+	case 0x26A0: // ⚠ - varies by terminal, treat as wide for safety
+		return true
+	}
+	// CJK Unified Ideographs
+	if r >= 0x4E00 && r <= 0x9FFF {
+		return true
+	}
+	// Fullwidth forms
+	if r >= 0xFF01 && r <= 0xFF60 {
+		return true
+	}
+	return false
+}
+
+// padOrTruncate pads or truncates a string to the specified visible width.
+// Handles ANSI color codes and multi-byte UTF-8 correctly.
+func padOrTruncate(s string, width int) string {
+	vis := visibleWidth(s)
+
+	if vis >= width {
 		return truncateWithAnsi(s, width)
 	}
 
-	// Pad with spaces
-	padding := width - visibleLen
+	padding := width - vis
 	return s + strings.Repeat(" ", padding)
 }
 
-// truncateWithAnsi truncates a string to the specified width, preserving ANSI codes
+// truncateWithAnsi truncates a string to the specified visible width, preserving ANSI codes
 func truncateWithAnsi(s string, width int) string {
 	visibleCount := 0
 	var result strings.Builder
+	runes := []rune(s)
 
-	for i := 0; i < len(s); {
+	for i := 0; i < len(runes); {
 		// Check if this is the start of an ANSI code
-		if s[i] == '\x1b' {
-			// Find the end of the ANSI code
-			match := ansiRegex.FindStringIndex(s[i:])
+		remaining := string(runes[i:])
+		if runes[i] == '\x1b' {
+			match := ansiRegex.FindStringIndex(remaining)
 			if match != nil && match[0] == 0 {
-				// Include the ANSI code without counting it
-				result.WriteString(s[i : i+match[1]])
-				i += match[1]
+				result.WriteString(remaining[:match[1]])
+				i += utf8.RuneCountInString(remaining[:match[1]])
 				continue
 			}
 		}
 
-		// Regular character
-		if visibleCount >= width {
+		runeWidth := 1
+		if isWideRune(runes[i]) {
+			runeWidth = 2
+		}
+		if visibleCount+runeWidth > width {
 			break
 		}
-		result.WriteByte(s[i])
-		visibleCount++
+		result.WriteRune(runes[i])
+		visibleCount += runeWidth
 		i++
 	}
 
@@ -135,99 +177,164 @@ type MigrationSummary struct {
 	MaxRiskScore       int
 }
 
-// FormatSummaryCard creates a beautiful summary card for a migration
+// FormatSummaryCard creates a summary card showing aggregate migration stats.
+// Per-operation details (lock, time) belong in FormatOperationCard instead.
 func FormatSummaryCard(migration *models.Migration) string {
 	summary := calculateSummary(migration)
-	var lines []string
-
-	// Get the first operation for detailed lock/time info
-	var mainOp *models.Operation
-	if len(migration.Operations) > 0 {
-		mainOp = migration.Operations[0]
-	}
+	width := 60
 
 	riskColor := getRiskColor(summary.MaxRiskScore)
 	riskLevel := getRiskLevelFromScore(summary.MaxRiskScore)
 
-	// ===== RISK SCORE SECTION =====
+	var lines []string
+
+	// ── Risk Score ──
 	lines = append(lines, "\x1b[1mRisk Score\x1b[0m")
 	progressBar := DrawVisualProgressBar(summary.MaxRiskScore, 100, 28, riskColor)
 	lines = append(lines, fmt.Sprintf("%s  %s%d/100\x1b[0m", progressBar, riskColor, summary.MaxRiskScore))
-	statusLine := fmt.Sprintf("Status: %s%s ✓\x1b[0m", riskColor, riskLevel)
-	lines = append(lines, statusLine)
+	lines = append(lines, fmt.Sprintf("Status: %s%s\x1b[0m %s", riskColor, riskLevel, getStatusIcon(summary.MaxRiskScore)))
 	lines = append(lines, "")
 
-	// ===== LOCK ANALYSIS SECTION =====
-	lines = append(lines, "\x1b[1mLock Analysis\x1b[0m")
-	if mainOp != nil {
-		lockTypeColor := getLockTypeColor(mainOp.LockType)
-		lockTypeFormatted := fmt.Sprintf("%s%s\x1b[0m", lockTypeColor, mainOp.LockType)
-
-		// Add description based on lock type
-		lockDesc := getLockDescription(mainOp.LockType)
-		lines = append(lines, fmt.Sprintf("├── Type      %s %s", lockTypeFormatted, lockDesc))
-
-		// Format duration
-		durationStr := formatLockDuration(mainOp.LockDurationMS)
-		lines = append(lines, fmt.Sprintf("├── Duration  %s", durationStr))
-
-		// Queries affected (estimate based on lock type)
-		queriesAffected := estimateQueriesAffected(mainOp.LockType)
-		lines = append(lines, fmt.Sprintf("└── Queries   %s", queriesAffected))
-	} else {
-		lines = append(lines, "└── No operations to analyze")
-	}
+	// ── Est. Time ──
+	lines = append(lines, fmt.Sprintf("\x1b[1mEst. Time:\x1b[0m %s", formatDuration(summary.TotalTime)))
 	lines = append(lines, "")
 
-	// ===== TIME ESTIMATE SECTION =====
-	lines = append(lines, "\x1b[1mTime Estimate\x1b[0m")
-	if mainOp != nil {
-		execTime := formatExecutionTime(mainOp.EstimatedTimeSeconds)
-		lines = append(lines, fmt.Sprintf("├── Execution  %s", execTime))
-
-		// Table size info (if available, otherwise show generic message)
-		tableSizeInfo := formatTableSizeInfo(mainOp)
-		lines = append(lines, fmt.Sprintf("└── Table Size %s", tableSizeInfo))
-	} else {
-		lines = append(lines, "└── No time estimate available")
-	}
+	// ── Risk Breakdown ──
+	lines = append(lines, "\x1b[1mRisk Breakdown:\x1b[0m")
+	lines = append(lines, formatRiskBreakdown("  ├── Low     ", summary.LowRisk, "\x1b[32m"))
+	lines = append(lines, formatRiskBreakdown("  ├── Medium  ", summary.MediumRisk, "\x1b[34m"))
+	lines = append(lines, formatRiskBreakdown("  ├── High    ", summary.HighRisk, "\x1b[33m"))
+	lines = append(lines, formatRiskBreakdown("  └── Critical", summary.CriticalRisk, "\x1b[31m"))
 	lines = append(lines, "")
 
-	// ===== COMPATIBILITY CHECK SECTION =====
-	lines = append(lines, "\x1b[1mCompatibility Check\x1b[0m")
-
-	// Check backward compatibility
-	allBackwardCompatible := summary.BackwardCompatible == summary.TotalOps
-	if allBackwardCompatible {
-		lines = append(lines, "\x1b[32m✓ Backward compatible\x1b[0m")
+	// ── Compatibility ──
+	lines = append(lines, "\x1b[1mCompatibility:\x1b[0m")
+	allCompat := summary.BackwardCompatible == summary.TotalOps
+	if allCompat {
+		lines = append(lines, fmt.Sprintf("  \x1b[32m✓\x1b[0m All operations backward compatible (%d/%d)", summary.BackwardCompatible, summary.TotalOps))
 	} else {
-		lines = append(lines, "\x1b[33m⚠ May break backward compatibility\x1b[0m")
+		lines = append(lines, fmt.Sprintf("  \x1b[33m⚠\x1b[0m %d/%d operations backward compatible", summary.BackwardCompatible, summary.TotalOps))
 	}
-
-	// Check for breaking changes (based on operation types)
-	hasBreakingChanges := checkForBreakingChanges(migration.Operations)
-	if !hasBreakingChanges {
-		lines = append(lines, "\x1b[32m✓ No breaking changes\x1b[0m")
+	hasBreaking := checkForBreakingChanges(migration.Operations)
+	if !hasBreaking {
+		lines = append(lines, "  \x1b[32m✓\x1b[0m No breaking changes")
 	} else {
-		lines = append(lines, "\x1b[33m⚠ Contains breaking changes\x1b[0m")
+		lines = append(lines, "  \x1b[31m✗\x1b[0m Contains breaking changes")
 	}
-
-	// Check rolling deployment safety
-	rollingSafe := isRollingSafe(summary.MaxRiskScore, allBackwardCompatible)
+	rollingSafe := isRollingSafe(summary.MaxRiskScore, allCompat)
 	if rollingSafe {
-		lines = append(lines, "\x1b[32m✓ Rolling deployment safe\x1b[0m")
+		lines = append(lines, "  \x1b[32m✓\x1b[0m Rolling deployment safe")
 	} else {
-		lines = append(lines, "\x1b[33m⚠ Requires maintenance window\x1b[0m")
+		lines = append(lines, "  \x1b[33m⚠\x1b[0m Requires maintenance window")
 	}
 
-	// Create main card
-	mainCard := DrawBox("ANALYSIS RESULTS", lines, 65)
-
-	// ===== BOTTOM MESSAGE BOX =====
-	bottomLines := []string{getBottomMessage(summary.MaxRiskScore)}
-	bottomCard := DrawBox("", bottomLines, 65)
+	// Build the two-box layout
+	mainCard := DrawBox("ANALYSIS RESULTS", lines, width)
+	bottomLines := getBottomMessage(summary.MaxRiskScore)
+	bottomCard := DrawBox("", bottomLines, width)
 
 	return mainCard + "\n" + bottomCard
+}
+
+// wrapText wraps text to fit within the given visible width.
+// Each continuation line is indented by the given prefix.
+func wrapText(text string, maxWidth int, continuationPrefix string) []string {
+	if visibleWidth(text) <= maxWidth {
+		return []string{text}
+	}
+
+	var result []string
+	words := strings.Fields(stripAnsi(text))
+	line := ""
+	for _, word := range words {
+		candidate := line
+		if candidate != "" {
+			candidate += " "
+		}
+		candidate += word
+
+		if visibleWidth(candidate) > maxWidth && line != "" {
+			result = append(result, line)
+			line = continuationPrefix + word
+		} else {
+			line = candidate
+		}
+	}
+	if line != "" {
+		result = append(result, line)
+	}
+	return result
+}
+
+// FormatOperationCard creates a bordered card for a single operation
+func FormatOperationCard(op *models.Operation, index int) string {
+	width := 60
+	innerWidth := width - 4 // account for │ + space on each side
+	riskColor := getRiskColor(op.RiskScore)
+
+	var lines []string
+
+	// Header: SQL statement (word-wrapped)
+	sqlPrefix := "SQL: "
+	sqlText := sqlPrefix + op.SQL
+	sqlLines := wrapText(sqlText, innerWidth, "     ")
+	for _, sl := range sqlLines {
+		lines = append(lines, sl)
+	}
+	lines = append(lines, "")
+
+	// ── Risk Score ──
+	lines = append(lines, "\x1b[1mRisk Score\x1b[0m")
+	bar := DrawVisualProgressBar(op.RiskScore, 100, 28, riskColor)
+	lines = append(lines, fmt.Sprintf("%s  %s%d/100\x1b[0m", bar, riskColor, op.RiskScore))
+	riskLevel := getRiskLevelFromScore(op.RiskScore)
+	lines = append(lines, fmt.Sprintf("Status: %s%s\x1b[0m %s", riskColor, riskLevel, getStatusIcon(op.RiskScore)))
+	lines = append(lines, "")
+
+	// ── Lock Analysis ──
+	lines = append(lines, "\x1b[1mLock Analysis\x1b[0m")
+	lockColor := getLockTypeColor(op.LockType)
+	lockDesc := getLockDescription(op.LockType)
+	lines = append(lines, fmt.Sprintf("  ├── Type      %s%s\x1b[0m %s", lockColor, op.LockType, lockDesc))
+	durationStr := formatLockDuration(op.LockDurationMS)
+	lines = append(lines, fmt.Sprintf("  ├── Duration  %s", durationStr))
+	queriesStr := estimateQueriesAffected(op.LockType)
+	lines = append(lines, fmt.Sprintf("  └── Queries   %s", queriesStr))
+	lines = append(lines, "")
+
+	// ── Time Estimate ──
+	lines = append(lines, "\x1b[1mTime Estimate\x1b[0m")
+	execTime := formatExecutionTime(op.EstimatedTimeSeconds)
+	lines = append(lines, fmt.Sprintf("  ├── Execution  %s", execTime))
+	tableSizeInfo := formatTableSizeInfo(op)
+	lines = append(lines, fmt.Sprintf("  └── Table Size %s", tableSizeInfo))
+	lines = append(lines, "")
+
+	// ── Compatibility ──
+	lines = append(lines, "\x1b[1mCompatibility\x1b[0m")
+	if op.BackwardCompatible {
+		lines = append(lines, "  \x1b[32m✓\x1b[0m Backward compatible")
+	} else {
+		lines = append(lines, "  \x1b[33m⚠\x1b[0m May break backward compatibility")
+	}
+	if !op.RequiresRewrite {
+		lines = append(lines, "  \x1b[32m✓\x1b[0m No table rewrite")
+	} else {
+		lines = append(lines, "  \x1b[31m✗\x1b[0m Requires full table rewrite")
+	}
+
+	// ── Recommendations ──
+	if len(op.Recommendations) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "\x1b[1mRecommendations\x1b[0m")
+		for _, rec := range op.Recommendations {
+			wrapped := wrapText("  • "+rec, innerWidth, "    ")
+			lines = append(lines, wrapped...)
+		}
+	}
+
+	title := fmt.Sprintf("%s on %s", op.Type, op.TableName)
+	return DrawBox(title, lines, width)
 }
 
 // calculateSummary computes summary statistics from a migration
@@ -297,25 +404,20 @@ func formatRiskBreakdown(label string, count int, color string) string {
 	return fmt.Sprintf("  %s %s %d", label, bar, count)
 }
 
-// formatCompatibilityCheck formats the compatibility check line
-func formatCompatibilityCheck(compatible int, total int) string {
-	if compatible == total {
-		return fmt.Sprintf("  ✓ All operations backward compatible (%d/%d)", compatible, total)
-	}
-	return fmt.Sprintf("  ⚠ %d/%d operations backward compatible", compatible, total)
-}
-
-// getBottomMessage returns an appropriate message based on risk score
-func getBottomMessage(maxRiskScore int) string {
+// getBottomMessage returns appropriate message lines based on risk score
+func getBottomMessage(maxRiskScore int) []string {
 	switch {
 	case maxRiskScore >= 76:
-		return "  \x1b[31m⚠  CRITICAL: Review carefully before proceeding\x1b[0m"
+		return []string{"  \x1b[31m⚠  CRITICAL: Review carefully before proceeding\x1b[0m"}
 	case maxRiskScore >= 51:
-		return "  \x1b[33m⚠  Requires thorough testing in staging environment\x1b[0m"
+		return []string{"  \x1b[33m⚠  Requires thorough testing in staging environment\x1b[0m"}
 	case maxRiskScore >= 26:
-		return "  \x1b[34mℹ  Standard precautions recommended\x1b[0m"
+		return []string{"  \x1b[34mℹ  Standard precautions recommended\x1b[0m"}
 	default:
-		return "  \x1b[32m✨ SAFE TO DEPLOY\x1b[0m\n  \x1b[32mThis migration can run without downtime.\x1b[0m"
+		return []string{
+			"  \x1b[32m✨ SAFE TO DEPLOY\x1b[0m",
+			"  \x1b[32mThis migration can run without downtime.\x1b[0m",
+		}
 	}
 }
 

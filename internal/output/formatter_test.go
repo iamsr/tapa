@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/iamsr/tapa/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/iamsr/tapa/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,20 +20,24 @@ func TestFormatTable(t *testing.T) {
 
 	output := buf.String()
 
-	// Check for migration header
-	assert.Contains(t, output, "Migration Analysis")
-	assert.Contains(t, output, "test_migration.sql")
+	// Check for summary card
+	assert.Contains(t, output, "ANALYSIS RESULTS")
+	assert.Contains(t, output, "Risk Score")
+	assert.Contains(t, output, "Risk Breakdown:")
+	assert.Contains(t, output, "Compatibility:")
 
-	// Check for operations section
-	assert.Contains(t, output, "Operations Detected")
-	assert.Contains(t, output, "ADD_COLUMN")
-	assert.Contains(t, output, "users")
+	// Check for operation card
+	assert.Contains(t, output, "ADD_COLUMN on users")
+	assert.Contains(t, output, "SQL:")
+	assert.Contains(t, output, "Lock Analysis")
+	assert.Contains(t, output, "Time Estimate")
 	assert.Contains(t, output, "email")
 
-	// Check for table structure (borders)
-	assert.Contains(t, output, "┌")
-	assert.Contains(t, output, "├")
-	assert.Contains(t, output, "└")
+	// Check for box drawing characters (new card style)
+	assert.Contains(t, output, "╭")
+	assert.Contains(t, output, "╮")
+	assert.Contains(t, output, "╰")
+	assert.Contains(t, output, "╯")
 }
 
 func TestFormatTable_EmptyResult(t *testing.T) {
@@ -118,7 +122,8 @@ func TestFormat_Table(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	assert.Contains(t, output, "Migration Analysis")
+	assert.Contains(t, output, "ANALYSIS RESULTS")
+	assert.Contains(t, output, "ADD_COLUMN on users")
 }
 
 func TestFormat_JSON(t *testing.T) {

@@ -91,8 +91,8 @@ func TestE2E_Comprehensive_Analysis(t *testing.T) {
 
 	result := string(output)
 
-	// Check for comprehensive features (detailed output with operation details)
-	if !strings.Contains(result, "Operation Details") && !strings.Contains(result, "Operations Detected") {
+	// Check for comprehensive features (detailed output with operation cards)
+	if !strings.Contains(result, "Lock Analysis") && !strings.Contains(result, "ANALYSIS RESULTS") {
 		t.Error("Expected comprehensive analysis to contain detailed operation information")
 	}
 

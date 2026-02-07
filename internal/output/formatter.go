@@ -38,97 +38,24 @@ func FormatTable(w io.Writer, result *models.AnalysisResult) error {
 		fmt.Fprintln(w, summaryCard)
 		fmt.Fprintln(w)
 
-		fmt.Fprintf(w, "\nMigration Analysis: %s\n", migration.FilePath)
-		fmt.Fprintln(w, strings.Repeat("=", 80))
-
-		if len(migration.Operations) == 0 {
-			fmt.Fprintln(w, "No operations detected")
-			continue
+		// Display individual operation cards
+		for i, op := range migration.Operations {
+			opCard := ui.FormatOperationCard(op, i+1)
+			fmt.Fprintln(w, opCard)
+			fmt.Fprintln(w)
 		}
-
-		fmt.Fprintln(w, "\nOperations Detected:")
-		printOperationsTable(w, migration.Operations)
 	}
 
 	// Print errors if any
 	if len(result.Errors) > 0 {
 		fmt.Fprintln(w, "\nErrors:")
-		fmt.Fprintln(w, strings.Repeat("-", 80))
+		fmt.Fprintln(w, strings.Repeat("-", 60))
 		for _, err := range result.Errors {
 			fmt.Fprintf(w, "  • %v\n", err)
 		}
 	}
 
 	return nil
-}
-
-// printOperationsTable prints operations in a table format
-func printOperationsTable(w io.Writer, operations []*models.Operation) {
-	// Table header
-	fmt.Fprintln(w, "┌────────────────────┬─────────────────┬──────────────────────────────────────┐")
-	fmt.Fprintln(w, "│ OPERATION          │ TABLE           │ DETAILS                              │")
-	fmt.Fprintln(w, "├────────────────────┼─────────────────┼──────────────────────────────────────┤")
-
-	// Table rows
-	for _, op := range operations {
-		details := formatOperationDetails(op)
-		opType := padRight(string(op.Type), 18)
-		table := padRight(op.TableName, 15)
-		detail := padRight(details, 36)
-		fmt.Fprintf(w, "│ %s │ %s │ %s │\n", opType, table, detail)
-	}
-
-	// Table footer
-	fmt.Fprintln(w, "└────────────────────┴─────────────────┴──────────────────────────────────────┘")
-
-	// Additional details
-	fmt.Fprintln(w, "\nOperation Details:")
-	for i, op := range operations {
-		fmt.Fprintf(w, "\n%d. %s on table '%s'\n", i+1, op.Type, op.TableName)
-		fmt.Fprintf(w, "   SQL: %s\n", truncate(op.SQL, 70))
-
-		// Apply color to lock type
-		lockTypeStr := Colorize(string(op.LockType), LockTypeColor(op.LockType))
-		fmt.Fprintf(w, "   Lock Type: %s (Duration: %dms)\n", lockTypeStr, op.LockDurationMS)
-
-		// Apply color to risk score
-		riskScoreStr := Colorize(fmt.Sprintf("%d/100", op.RiskScore), RiskColor(op.RiskScore))
-		fmt.Fprintf(w, "   Risk Score: %s (%s)\n", riskScoreStr, op.RiskLevel())
-
-		fmt.Fprintf(w, "   Estimated Time: %.2fs\n", op.EstimatedTimeSeconds)
-		fmt.Fprintf(w, "   Requires Rewrite: %v\n", op.RequiresRewrite)
-		fmt.Fprintf(w, "   Backward Compatible: %v\n", op.BackwardCompatible)
-
-		if len(op.Recommendations) > 0 {
-			fmt.Fprintln(w, "   Recommendations:")
-			for _, rec := range op.Recommendations {
-				fmt.Fprintf(w, "     • %s\n", rec)
-			}
-		}
-	}
-}
-
-// formatOperationDetails creates a short summary for the table
-func formatOperationDetails(op *models.Operation) string {
-	details := []string{}
-
-	if op.RequiresRewrite {
-		details = append(details, "Rewrite")
-	}
-
-	if op.LockType == models.LockTypeAccessExclusive {
-		details = append(details, "Exclusive Lock")
-	}
-
-	if op.IsHighRisk() {
-		details = append(details, fmt.Sprintf("Risk:%d", op.RiskScore))
-	}
-
-	if len(details) == 0 {
-		return "Low impact"
-	}
-
-	return strings.Join(details, ", ")
 }
 
 // FormatJSON outputs the result as JSON
