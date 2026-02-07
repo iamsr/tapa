@@ -1,8 +1,9 @@
 # Table Alteration Planning Assistant (TAPA)
 
-[![CI](https://github.com/iamsr/tapa/workflows/CI/badge.svg)](https://github.com/iamsr/tapa/actions)
 [![codecov](https://codecov.io/gh/iamsr/tapa/branch/main/graph/badge.svg)](https://codecov.io/gh/iamsr/tapa)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+**[https://tapa.com](https://tapa-rho.vercel.app/)**
 
 A static analysis tool that predicts the production impact of database migrations before execution. TAPA analyzes migration files and provides risk assessments, lock predictions, time estimates, and safer alternatives.
 
@@ -108,6 +109,7 @@ Example output:
 ```
 
 Features:
+
 - Visual progress bars with risk-based coloring
 - Tree-style risk breakdown with operation counts
 - Emoji status indicators for quick assessment
@@ -149,6 +151,7 @@ tapa analyze migrations/ --db $DATABASE_URL
 ```
 
 Progress output (on stderr):
+
 ```
   Connecting to database...
   ✓ Connected to Postgresql
@@ -159,11 +162,13 @@ Progress output (on stderr):
 ```
 
 This keeps stdout clean for JSON output while showing progress:
+
 ```bash
 tapa analyze migrations/ --format json > report.json  # Progress on stderr, JSON on stdout
 ```
 
 Disable emojis in progress output:
+
 ```bash
 TAPA_NO_EMOJI=1 tapa analyze migrations/
 ```
@@ -286,6 +291,7 @@ cd tests/e2e
 ```
 
 This runs the full E2E suite including:
+
 - PostgreSQL integration tests
 - MySQL integration tests
 - Batch command tests
