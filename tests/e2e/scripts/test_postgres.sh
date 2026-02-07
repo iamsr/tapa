@@ -20,7 +20,7 @@ echo -e "${BLUE}Testing PostgreSQL integration...${NC}"
 
 # Test 1: Basic analysis without database connection (dry-run)
 echo -e "${YELLOW}  Test 1: Dry-run analysis${NC}"
-OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --dry-run --format json 2>&1)
+OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --dry-run --format json 2>/dev/null)
 if [ $? -ne 0 ]; then
     echo -e "${RED}    ✗ Failed: $OUTPUT${NC}"
     exit 1
@@ -40,7 +40,7 @@ echo -e "${GREEN}    ✓ Dry-run analysis successful${NC}"
 
 # Test 2: Analysis with database connection
 echo -e "${YELLOW}  Test 2: Analysis with database connection${NC}"
-OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --db "$PG_URL" --format json 2>&1)
+OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --db "$PG_URL" --format json 2>/dev/null)
 if [ $? -ne 0 ]; then
     echo -e "${RED}    ✗ Failed: $OUTPUT${NC}"
     exit 1
@@ -59,7 +59,7 @@ echo -e "${GREEN}    ✓ Database connection analysis successful${NC}"
 
 # Test 3: Comprehensive analysis (Phase 2 features)
 echo -e "${YELLOW}  Test 3: Comprehensive analysis (Phase 2 features)${NC}"
-OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --db "$PG_URL" --comprehensive --format json 2>&1)
+OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --db "$PG_URL" --comprehensive --format json 2>/dev/null)
 if [ $? -ne 0 ]; then
     echo -e "${RED}    ✗ Failed: $OUTPUT${NC}"
     exit 1

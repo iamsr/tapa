@@ -78,7 +78,7 @@ echo -e "${GREEN}    ✓ Batch command respects NO_COLOR${NC}"
 
 # Test 5: JSON output never has ANSI codes
 echo -e "${YELLOW}  Test 5: JSON output never has ANSI codes${NC}"
-OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --dry-run --format json 2>&1)
+OUTPUT=$("$TAPA_BIN" analyze "$E2E_DIR/fixtures/postgres_test_migration.sql" --dry-run --format json 2>/dev/null)
 if [ $? -ne 0 ]; then
     echo -e "${RED}    ✗ Failed to analyze with JSON format${NC}"
     exit 1

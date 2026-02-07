@@ -139,15 +139,15 @@ fi
 echo -e "${GREEN}✓ Time estimation E2E test passed${NC}"
 echo ""
 
-# Run Verbose mode E2E test
-echo -e "${YELLOW}[8/10] Running Verbose mode E2E test...${NC}"
+# Run Progress output E2E test
+echo -e "${YELLOW}[8/10] Running Progress output E2E test...${NC}"
 bash "$E2E_DIR/scripts/test_verbose_mode.sh"
 if [ $? -ne 0 ]; then
-    echo -e "${RED}✗ Verbose mode E2E test failed${NC}"
+    echo -e "${RED}✗ Progress output E2E test failed${NC}"
     docker-compose down -v
     exit 1
 fi
-echo -e "${GREEN}✓ Verbose mode E2E test passed${NC}"
+echo -e "${GREEN}✓ Progress output E2E test passed${NC}"
 echo ""
 
 # Run Color support E2E test
