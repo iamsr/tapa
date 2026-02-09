@@ -64,7 +64,7 @@ jobs:
 
   build-darwin-amd64:
     needs: test
-    runs-on: macos-13
+    runs-on: macos-14-large
     steps:
     - uses: actions/checkout@v4
     
@@ -141,7 +141,7 @@ jobs:
         mkdir -p release
         find artifacts -type f -exec mv {} release/ \;
         chmod +x release/tapa-* || true
-        cd release && sha256sum * > checksums.txt
+        cd release && sha256sum ./* > checksums.txt
         ls -la
     
     - name: Create Release
