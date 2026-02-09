@@ -17,69 +17,114 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.25'
+        go-version: '1.24'
     
     - name: Run tests
       run: make test
 
-  release-linux:
+  build-linux-amd64:
     needs: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
     
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.25'
+        go-version: '1.24'
     
-    - name: Build Linux AMD64
-      run: |
-        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o tapa-linux-amd64 ./cmd/tapa
+    - name: Build
+      run: CGO_ENABLED=1 go build -ldflags="-s -w" -o tapa-linux-amd64 ./cmd/tapa
     
-    - name: Upload Linux AMD64
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: linux-amd64
+        name: tapa-linux-amd64
         path: tapa-linux-amd64
-  
-  release-darwin:
+
+  build-linux-arm64:
+    needs: test
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+    
+    - name: Build
+      run: CGO_ENABLED=1 go build -ldflags="-s -w" -o tapa-linux-arm64 ./cmd/tapa
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tapa-linux-arm64
+        path: tapa-linux-arm64
+
+  build-darwin-amd64:
+    needs: test
+    runs-on: macos-13
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+    
+    - name: Build
+      run: CGO_ENABLED=1 GOARCH=amd64 go build -ldflags="-s -w" -o tapa-darwin-amd64 ./cmd/tapa
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tapa-darwin-amd64
+        path: tapa-darwin-amd64
+
+  build-darwin-arm64:
     needs: test
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
     
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.25'
+        go-version: '1.24'
     
-    - name: Build macOS AMD64
-      run: |
-        CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o tapa-darwin-amd64 ./cmd/tapa
+    - name: Build
+      run: CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-s -w" -o tapa-darwin-arm64 ./cmd/tapa
     
-    - name: Build macOS ARM64
-      run: |
-        CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o tapa-darwin-arm64 ./cmd/tapa
-    
-    - name: Upload macOS AMD64
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: darwin-amd64
-        path: tapa-darwin-amd64
-    
-    - name: Upload macOS ARM64
-      uses: actions/upload-artifact@v4
-      with:
-        name: darwin-arm64
+        name: tapa-darwin-arm64
         path: tapa-darwin-arm64
 
+  build-windows-amd64:
+    needs: test
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+    
+    - name: Build
+      shell: bash
+      run: CGO_ENABLED=1 go build -ldflags="-s -w" -o tapa-windows-amd64.exe ./cmd/tapa
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tapa-windows-amd64.exe
+        path: tapa-windows-amd64.exe
+
   create-release:
-    needs: [release-linux, release-darwin]
+    needs: [build-linux-amd64, build-linux-arm64, build-darwin-amd64, build-darwin-arm64, build-windows-amd64]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -89,66 +134,20 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        path: dist
+        path: artifacts
     
     - name: Prepare release files
       run: |
         mkdir -p release
-        find dist -type f -exec cp {} release/ \;
+        find artifacts -type f -exec mv {} release/ \;
+        chmod +x release/tapa-* || true
         cd release && sha256sum * > checksums.txt
-    
-    - name: Generate release notes
-      run: |
-        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-        
-        if [ -z "$PREV_TAG" ]; then
-          COMMITS=$(git log --oneline --pretty=format:"- %s" | head -20)
-        else
-          COMMITS=$(git log --oneline --pretty=format:"- %s" ${PREV_TAG}..HEAD)
-        fi
-        
-        cat > release_notes.md << 'EOF'
-        ## What's Changed
-        
-        ${COMMITS}
-        
-        ## Installation
-        
-        ### macOS (Apple Silicon)
-        ```bash
-        curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-darwin-arm64 -o tapa
-        chmod +x tapa
-        sudo mv tapa /usr/local/bin/
-        ```
-        
-        ### macOS (Intel)
-        ```bash
-        curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-darwin-amd64 -o tapa
-        chmod +x tapa
-        sudo mv tapa /usr/local/bin/
-        ```
-        
-        ### Linux (AMD64)
-        ```bash
-        curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-linux-amd64 -o tapa
-        chmod +x tapa
-        sudo mv tapa /usr/local/bin/
-        ```
-        
-        ## Verify Download
-        
-        ```bash
-        sha256sum -c checksums.txt
-        ```
-        EOF
-        
-        # Expand variables
-        sed -i "s|\${COMMITS}|${COMMITS}|g" release_notes.md
+        ls -la
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        body_path: release_notes.md
+        generate_release_notes: true
         files: release/*
         draft: false
         prerelease: false

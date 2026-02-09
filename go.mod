@@ -1,16 +1,16 @@
 module github.com/iamsr/tapa
 
-go 1.25.6
+go 1.24.0
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/pganalyze/pg_query_go/v5 v5.1.0
+	github.com/pganalyze/pg_query_go/v6 v6.2.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
-	vitess.io/vitess v0.23.1
+	vitess.io/vitess v0.21.0
 )
 
 require (
