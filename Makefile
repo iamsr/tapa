@@ -2,12 +2,12 @@
 
 VERSION := 0.1.0
 BUILD_DIR := bin
-BINARY_NAME := dma
+BINARY_NAME := tapa
 
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/dma
+	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/tapa
 
 test:
 	@echo "Running tests..."

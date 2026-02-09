@@ -1,6 +1,6 @@
-name: 'DMA Migration Analyzer'
+name: 'TAPA Migration Analyzer'
 description: 'Analyzes database migrations and comments on PRs with risk assessment'
-author: 'Your Name'
+author: 'TAPA Team'
 
 inputs:
   migration-path:
