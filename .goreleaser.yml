@@ -1,0 +1,80 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tapa
+    main: ./cmd/tapa
+    binary: tapa
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: tapa
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - docs/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: iamsr
+    name: tapa
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## Installation
+
+    ### macOS (Intel)
+    ```bash
+    curl -L https://github.com/iamsr/tapa/releases/download/{{ .Tag }}/tapa_darwin_x86_64.tar.gz | tar xz
+    sudo mv tapa /usr/local/bin/
+    ```
+
+    ### Linux (AMD64)
+    ```bash
+    curl -L https://github.com/iamsr/tapa/releases/download/{{ .Tag }}/tapa_linux_x86_64.tar.gz | tar xz
+    sudo mv tapa /usr/local/bin/
+    ```
+
+    ### Linux (ARM64)
+    ```bash
+    curl -L https://github.com/iamsr/tapa/releases/download/{{ .Tag }}/tapa_linux_arm64.tar.gz | tar xz
+    sudo mv tapa /usr/local/bin/
+    ```

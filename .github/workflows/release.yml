@@ -9,9 +9,22 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
     
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    
+    - name: Run tests
+      run: make test
+
+  release-linux:
+    needs: test
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with:
@@ -22,47 +35,79 @@ jobs:
       with:
         go-version: '1.25'
     
-    - name: Run tests
-      run: make test
-    
-    - name: Build binaries
+    - name: Build Linux AMD64
       run: |
-        mkdir -p dist
-        
-        # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/tapa-linux-amd64 ./cmd/tapa
-        
-        # Linux ARM64
-        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/tapa-linux-arm64 ./cmd/tapa
-        
-        # macOS AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/tapa-darwin-amd64 ./cmd/tapa
-        
-        # macOS ARM64 (Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/tapa-darwin-arm64 ./cmd/tapa
-        
-        # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/tapa-windows-amd64.exe ./cmd/tapa
-        
-        # Create checksums
-        cd dist && sha256sum * > checksums.txt
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o tapa-linux-amd64 ./cmd/tapa
+    
+    - name: Upload Linux AMD64
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-amd64
+        path: tapa-linux-amd64
+  
+  release-darwin:
+    needs: test
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    
+    - name: Build macOS AMD64
+      run: |
+        CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o tapa-darwin-amd64 ./cmd/tapa
+    
+    - name: Build macOS ARM64
+      run: |
+        CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o tapa-darwin-arm64 ./cmd/tapa
+    
+    - name: Upload macOS AMD64
+      uses: actions/upload-artifact@v4
+      with:
+        name: darwin-amd64
+        path: tapa-darwin-amd64
+    
+    - name: Upload macOS ARM64
+      uses: actions/upload-artifact@v4
+      with:
+        name: darwin-arm64
+        path: tapa-darwin-arm64
+
+  create-release:
+    needs: [release-linux, release-darwin]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist
+    
+    - name: Prepare release files
+      run: |
+        mkdir -p release
+        find dist -type f -exec cp {} release/ \;
+        cd release && sha256sum * > checksums.txt
     
     - name: Generate release notes
-      id: release_notes
       run: |
-        # Get the previous tag
         PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
         
         if [ -z "$PREV_TAG" ]; then
-          # First release - get all commits
           COMMITS=$(git log --oneline --pretty=format:"- %s" | head -20)
         else
-          # Get commits since last tag
           COMMITS=$(git log --oneline --pretty=format:"- %s" ${PREV_TAG}..HEAD)
         fi
         
-        # Write release notes to file
-        cat > release_notes.md << EOF
+        cat > release_notes.md << 'EOF'
         ## What's Changed
         
         ${COMMITS}
@@ -70,54 +115,41 @@ jobs:
         ## Installation
         
         ### macOS (Apple Silicon)
-        \`\`\`bash
+        ```bash
         curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-darwin-arm64 -o tapa
         chmod +x tapa
         sudo mv tapa /usr/local/bin/
-        \`\`\`
+        ```
         
         ### macOS (Intel)
-        \`\`\`bash
+        ```bash
         curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-darwin-amd64 -o tapa
         chmod +x tapa
         sudo mv tapa /usr/local/bin/
-        \`\`\`
+        ```
         
         ### Linux (AMD64)
-        \`\`\`bash
+        ```bash
         curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-linux-amd64 -o tapa
         chmod +x tapa
         sudo mv tapa /usr/local/bin/
-        \`\`\`
-        
-        ### Linux (ARM64)
-        \`\`\`bash
-        curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/tapa-linux-arm64 -o tapa
-        chmod +x tapa
-        sudo mv tapa /usr/local/bin/
-        \`\`\`
-        
-        ### Windows
-        Download \`tapa-windows-amd64.exe\` and add to your PATH.
+        ```
         
         ## Verify Download
         
-        \`\`\`bash
+        ```bash
         sha256sum -c checksums.txt
-        \`\`\`
+        ```
         EOF
+        
+        # Expand variables
+        sed -i "s|\${COMMITS}|${COMMITS}|g" release_notes.md
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         body_path: release_notes.md
-        files: |
-          dist/tapa-linux-amd64
-          dist/tapa-linux-arm64
-          dist/tapa-darwin-amd64
-          dist/tapa-darwin-arm64
-          dist/tapa-windows-amd64.exe
-          dist/checksums.txt
+        files: release/*
         draft: false
         prerelease: false
       env:
