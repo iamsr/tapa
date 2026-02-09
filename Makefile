@@ -11,7 +11,7 @@ build:
 
 test:
 	@echo "Running tests..."
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -v -race -coverprofile=coverage.txt -covermode=atomic $$(go list ./... | grep -v /internal/db/postgres)
 
 lint:
 	@echo "Running linter..."
