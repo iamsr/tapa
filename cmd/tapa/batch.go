@@ -121,7 +121,7 @@ func runBatch(filePath string, opts *batchOptions) error {
 
 	switch cfg.Database.Type {
 	case "postgresql":
-		analyzer = postgresanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor)
+		analyzer = postgresanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor, false)
 	case "mysql":
 		analyzer = mysqlanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor)
 	default:

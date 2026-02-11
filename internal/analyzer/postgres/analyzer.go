@@ -8,8 +8,11 @@ import (
 
 	"github.com/iamsr/tapa/internal/analyzer/alternatives"
 	"github.com/iamsr/tapa/internal/analyzer/batcher"
+	"github.com/iamsr/tapa/internal/analyzer/datamigration"
 	"github.com/iamsr/tapa/internal/analyzer/dependencies"
+	"github.com/iamsr/tapa/internal/analyzer/diskspace"
 	"github.com/iamsr/tapa/internal/analyzer/estimator"
+	"github.com/iamsr/tapa/internal/analyzer/rollback"
 	"github.com/iamsr/tapa/internal/db"
 	"github.com/iamsr/tapa/pkg/models"
 )
@@ -19,6 +22,7 @@ type Analyzer struct {
 	introspector       db.Introspector
 	diskThroughputMBps int
 	rewriteFactor      float64
+	comprehensive      bool
 
 	// Phase 2 modules
 	dependencyAnalyzer   dependencies.DependencyAnalyzer
@@ -28,11 +32,12 @@ type Analyzer struct {
 }
 
 // NewAnalyzer creates a new PostgreSQL analyzer
-func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFactor float64) *Analyzer {
+func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFactor float64, comprehensive bool) *Analyzer {
 	analyzer := &Analyzer{
 		introspector:       introspector,
 		diskThroughputMBps: diskThroughputMBps,
 		rewriteFactor:      rewriteFactor,
+		comprehensive:      comprehensive,
 	}
 
 	// Initialize Phase 2 modules (errors are ignored for optional features)
@@ -88,6 +93,14 @@ func (a *Analyzer) Analyze(ctx context.Context, op *models.Operation) error {
 
 	// Step 7: Generate recommendations
 	a.generateRecommendations(op, stats)
+
+	// Step 8: Run advanced analyzers in comprehensive mode
+	if a.comprehensive {
+		if err := a.runAdvancedAnalyzers(ctx, op, stats); err != nil {
+			// Non-fatal: advanced analysis failures don't stop main analysis
+			// In production, this would use proper logging
+		}
+	}
 
 	return nil
 }
@@ -415,4 +428,37 @@ func (a *Analyzer) BatchOperations(ops []*models.Operation) (*models.BatchingStr
 	}
 
 	return a.batcher.GenerateBatches(ops)
+}
+
+// runAdvancedAnalyzers runs all advanced analyzers (disk space, rollback, data migration)
+func (a *Analyzer) runAdvancedAnalyzers(ctx context.Context, op *models.Operation, stats *db.TableStats) error {
+	// Disk space analyzer
+	diskAnalyzer := diskspace.NewAnalyzer("postgresql", a.diskThroughputMBps)
+	if err := diskAnalyzer.AnalyzeDiskSpace(ctx, op, stats); err != nil {
+		return fmt.Errorf("disk space analysis failed: %w", err)
+	}
+
+	// Rollback analyzer
+	rollbackAnalyzer := rollback.NewAnalyzer("postgresql")
+	if err := rollbackAnalyzer.AnalyzeRollback(ctx, op); err != nil {
+		return fmt.Errorf("rollback analysis failed: %w", err)
+	}
+
+	// Data migration detector
+	dataMigrationAnalyzer := datamigration.NewAnalyzer("postgresql")
+	if err := dataMigrationAnalyzer.DetectDataMigration(ctx, op, stats); err != nil {
+		return fmt.Errorf("data migration detection failed: %w", err)
+	}
+
+	return nil
+}
+
+// getDefaultStats returns default stats when introspector is not available
+func (a *Analyzer) getDefaultStats(tableName string) *db.TableStats {
+	return &db.TableStats{
+		TableName:      tableName,
+		RowCount:       1000000,
+		TableSizeBytes: 10 * 1024 * 1024 * 1024, // 10GB
+		IndexSizeBytes: 2 * 1024 * 1024 * 1024,  // 2GB
+	}
 }

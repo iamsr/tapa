@@ -26,7 +26,7 @@ type analyzeOptions struct {
 	format          string
 	dryRun          bool
 	failOnRiskLevel string
-	comprehensive   bool // Enable all Phase 2 features
+	comprehensive   bool // Enable all Phase 2 + advanced features (disk space, rollback, data migration)
 	verbose         bool // Enable verbose output with progress indicators
 }
 
@@ -53,7 +53,7 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.format, "format", "table", "output format (table, json, yaml)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
-	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (dependencies, time breakdown, alternatives)")
+	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, data migration, dependencies, time breakdown, alternatives)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose output with progress indicators")
 
 	return cmd
@@ -151,9 +151,10 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 
 	switch cfg.Database.Type {
 	case "postgresql":
-		pgAnalyzer = postgresanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor)
+		pgAnalyzer = postgresanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor, opts.comprehensive)
 		anlzr = pgAnalyzer
 	case "mysql":
+		// MySQL analyzer doesn't support comprehensive mode yet
 		mysqlAnalyzer = mysqlanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor)
 		anlzr = mysqlAnalyzer
 	default:

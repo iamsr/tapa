@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/iamsr/tapa/internal/db"
 	"github.com/iamsr/tapa/pkg/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockIntrospector for testing
@@ -35,7 +35,7 @@ func TestAnalyzer_AddColumnWithoutDefault(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
@@ -62,7 +62,7 @@ func TestAnalyzer_AddColumnWithConstantDefault(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
@@ -98,7 +98,7 @@ func TestAnalyzer_AlterColumnType(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "ALTER TABLE orders ALTER COLUMN total TYPE NUMERIC(12,2)",
@@ -125,7 +125,7 @@ func TestAnalyzer_CreateIndexConcurrently(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "CREATE INDEX CONCURRENTLY idx_users_email ON users(email)",
@@ -151,7 +151,7 @@ func TestAnalyzer_CreateIndexWithoutConcurrently(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "CREATE INDEX idx_users_email ON users(email)",
@@ -186,7 +186,7 @@ func TestAnalyzer_DropColumn(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "ALTER TABLE users DROP COLUMN deprecated_field",
@@ -212,7 +212,7 @@ func TestAnalyzer_DropTable(t *testing.T) {
 		},
 	}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "DROP TABLE temp_table",
@@ -233,7 +233,7 @@ func TestAnalyzer_DropTable(t *testing.T) {
 func TestAnalyzer_CreateTable(t *testing.T) {
 	introspector := &mockIntrospector{}
 
-	analyzer := NewAnalyzer(introspector, 200, 2.0)
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "CREATE TABLE new_table (id SERIAL PRIMARY KEY, name VARCHAR(255))",
@@ -299,7 +299,7 @@ func TestAnalyzer_RiskScoreCalculation(t *testing.T) {
 				},
 			}
 
-			analyzer := NewAnalyzer(introspector, 200, 2.0)
+			analyzer := NewAnalyzer(introspector, 200, 2.0, false)
 
 			op := &models.Operation{
 				SQL:       tt.sql,

@@ -20,7 +20,7 @@ type Analyzer interface {
 func GetAnalyzer(dbType string, introspector db.Introspector, diskThroughputMBps int, rewriteFactor float64) (Analyzer, error) {
 	switch dbType {
 	case "postgresql":
-		return postgresanalyzer.NewAnalyzer(introspector, diskThroughputMBps, rewriteFactor), nil
+		return postgresanalyzer.NewAnalyzer(introspector, diskThroughputMBps, rewriteFactor, false), nil
 	case "mysql":
 		return mysqlanalyzer.NewAnalyzer(introspector, diskThroughputMBps, rewriteFactor), nil
 	default:

@@ -10,7 +10,7 @@ import (
 // TestAnalyzeWithEnhancements_Integration tests full Phase 2 analysis with all features enabled
 func TestAnalyzeWithEnhancements_Integration(t *testing.T) {
 	// Create analyzer with nil introspector (dry-run mode)
-	analyzer := NewAnalyzer(nil, 100, 2.0)
+	analyzer := NewAnalyzer(nil, 100, 2.0, false)
 
 	// Test high-risk operation that should trigger all Phase 2 features
 	op := &models.Operation{
@@ -69,7 +69,7 @@ func TestAnalyzeWithEnhancements_Integration(t *testing.T) {
 
 // TestAnalyzeWithEnhancements_HighRiskIndex tests index creation alternative
 func TestAnalyzeWithEnhancements_HighRiskIndex(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 2.0)
+	analyzer := NewAnalyzer(nil, 100, 2.0, false)
 
 	// Create index without CONCURRENTLY - high risk
 	op := &models.Operation{
@@ -115,7 +115,7 @@ func TestAnalyzeWithEnhancements_HighRiskIndex(t *testing.T) {
 
 // TestAnalyzeWithEnhancements_SelectiveOptions tests selective feature enablement
 func TestAnalyzeWithEnhancements_SelectiveOptions(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 2.0)
+	analyzer := NewAnalyzer(nil, 100, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "ALTER TABLE users DROP COLUMN legacy_field",
@@ -149,7 +149,7 @@ func TestAnalyzeWithEnhancements_SelectiveOptions(t *testing.T) {
 
 // TestAnalyze_BackwardCompatibility ensures base Analyze() still works
 func TestAnalyze_BackwardCompatibility(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 2.0)
+	analyzer := NewAnalyzer(nil, 100, 2.0, false)
 
 	op := &models.Operation{
 		SQL:       "CREATE TABLE test (id SERIAL PRIMARY KEY)",
@@ -183,7 +183,7 @@ func TestAnalyze_BackwardCompatibility(t *testing.T) {
 
 // TestAnalyzer_BatchOperations tests the batching functionality
 func TestAnalyzer_BatchOperations(t *testing.T) {
-	analyzer := NewAnalyzer(nil, 100, 2.0)
+	analyzer := NewAnalyzer(nil, 100, 2.0, false)
 
 	ops := []*models.Operation{
 		{
