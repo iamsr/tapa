@@ -41,25 +41,26 @@ const (
 
 // Operation represents a single DDL operation within a migration
 type Operation struct {
-	SQL                  string
-	Type                 OperationType
-	TableName            string
-	ColumnName           string
-	IndexName            string
-	LockType             LockType
-	LockDurationMS       int64
-	RequiresRewrite      bool
-	EstimatedTimeSeconds float64
-	RiskScore            int
-	BackwardCompatible   bool
-	Recommendations      []string
-	RowCount             int64                 `json:"row_count,omitempty"`
-	TableSizeBytes       int64                 `json:"table_size_bytes,omitempty"`
-	Dependencies         []Dependency          `json:"dependencies,omitempty"`
-	TimeBreakdown        *TimeBreakdown        `json:"time_breakdown,omitempty"`
-	Alternatives         []AlternativeStrategy `json:"alternatives,omitempty"`
-	DiskSpaceAnalysis    *DiskSpaceAnalysis    `json:"disk_space_analysis,omitempty"`
-	RollbackAnalysis     *RollbackAnalysis     `json:"rollback_analysis,omitempty"`
+	SQL                   string
+	Type                  OperationType
+	TableName             string
+	ColumnName            string
+	IndexName             string
+	LockType              LockType
+	LockDurationMS        int64
+	RequiresRewrite       bool
+	EstimatedTimeSeconds  float64
+	RiskScore             int
+	BackwardCompatible    bool
+	Recommendations       []string
+	RowCount              int64                  `json:"row_count,omitempty"`
+	TableSizeBytes        int64                  `json:"table_size_bytes,omitempty"`
+	Dependencies          []Dependency           `json:"dependencies,omitempty"`
+	TimeBreakdown         *TimeBreakdown         `json:"time_breakdown,omitempty"`
+	Alternatives          []AlternativeStrategy  `json:"alternatives,omitempty"`
+	DiskSpaceAnalysis     *DiskSpaceAnalysis     `json:"disk_space_analysis,omitempty"`
+	RollbackAnalysis      *RollbackAnalysis      `json:"rollback_analysis,omitempty"`
+	DataMigrationAnalysis *DataMigrationAnalysis `json:"data_migration_analysis,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
