@@ -33,6 +33,22 @@ A static analysis tool that predicts the production impact of database migration
 - **GitLab CI**: Pipeline integration with JSON and Markdown reports
 - **JSON Output**: Machine-readable format for custom automation workflows
 
+### Advanced Features (Comprehensive Mode)
+
+Enable comprehensive analysis with the `--comprehensive` flag for production-ready insights:
+
+```bash
+tapa analyze migrations/ --db $DATABASE_URL --comprehensive
+```
+
+Features include:
+
+- **Disk Space Requirements**: Calculate space needed before, during, and after migration
+- **Rollback Analysis**: Determine reversibility and get auto-generated rollback scripts
+- **Data Migration Detection**: Find hidden UPDATE/INSERT/DELETE operations with time estimates
+
+See [Advanced Features Guide](docs/advanced-features.md) for details.
+
 ## Installation
 
 ```bash
