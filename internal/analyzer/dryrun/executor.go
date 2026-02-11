@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +14,18 @@ import (
 // Executor executes SQL statements and captures errors
 type Executor struct {
 	databaseType string
+}
+
+// validateIdentifier ensures identifier is safe for SQL interpolation
+func validateIdentifier(name string) error {
+	if name == "" {
+		return fmt.Errorf("identifier cannot be empty")
+	}
+	// Allow alphanumeric and underscore, must start with letter or underscore
+	if !regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name) {
+		return fmt.Errorf("invalid identifier: %s (must contain only letters, numbers, and underscores)", name)
+	}
+	return nil
 }
 
 // NewExecutor creates a new SQL executor
@@ -46,7 +59,7 @@ func (e *Executor) ExecuteSQL(ctx context.Context, db *sql.DB, sqlText string, s
 			{
 				ErrorType: models.ErrorTypeUnknown,
 				Message:   fmt.Sprintf("Failed to start transaction: %v", err),
-				Severity:  "FATAL",
+				Severity:  models.SeverityFatal,
 			},
 		}
 		result.ExecutionTimeMS = time.Since(startTime).Milliseconds()
@@ -58,12 +71,25 @@ func (e *Executor) ExecuteSQL(ctx context.Context, db *sql.DB, sqlText string, s
 
 	// Set search path to temp schema (PostgreSQL)
 	if e.databaseType == "postgresql" && schemaName != "" {
+		// Validate schema name to prevent SQL injection
+		if err := validateIdentifier(schemaName); err != nil {
+			result.Errors = append(result.Errors, models.ExecutionError{
+				ErrorType: models.ErrorTypePermission,
+				Message:   fmt.Sprintf("Invalid schema name: %v", err),
+				Severity:  models.SeverityFatal,
+			})
+			result.ErrorCount++
+			result.Status = models.DryRunStatusFailed
+			result.ExecutionTimeMS = time.Since(startTime).Milliseconds()
+			return result
+		}
+
 		_, err := tx.ExecContext(ctx, fmt.Sprintf("SET search_path TO %s", schemaName))
 		if err != nil {
 			result.Errors = append(result.Errors, models.ExecutionError{
 				ErrorType: models.ErrorTypePermission,
 				Message:   fmt.Sprintf("Failed to set search path: %v", err),
-				Severity:  "ERROR",
+				Severity:  models.SeverityError,
 			})
 			result.ErrorCount++
 		}
@@ -110,7 +136,7 @@ func (e *Executor) mockExecuteSQL(sqlText string, result *models.DryRunResult) *
 					ErrorType: models.ErrorTypeSyntaxError,
 					Message:   "SQL syntax error detected",
 					SQL:       sqlText,
-					Severity:  "ERROR",
+					Severity:  models.SeverityError,
 				},
 			}
 			return result
@@ -147,7 +173,7 @@ func (e *Executor) parseError(err error, sql string, lineNumber int) models.Exec
 		Message:    errMsg,
 		SQL:        sql,
 		LineNumber: lineNumber,
-		Severity:   "ERROR",
+		Severity:   models.SeverityError,
 	}
 
 	// Classify error type based on message
