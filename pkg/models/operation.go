@@ -61,6 +61,7 @@ type Operation struct {
 	DiskSpaceAnalysis     *DiskSpaceAnalysis     `json:"disk_space_analysis,omitempty"`
 	RollbackAnalysis      *RollbackAnalysis      `json:"rollback_analysis,omitempty"`
 	DataMigrationAnalysis *DataMigrationAnalysis `json:"data_migration_analysis,omitempty"`
+	DryRunResult          *DryRunResult          `json:"dry_run_result,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
