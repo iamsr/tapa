@@ -58,6 +58,7 @@ type Operation struct {
 	Dependencies         []Dependency          `json:"dependencies,omitempty"`
 	TimeBreakdown        *TimeBreakdown        `json:"time_breakdown,omitempty"`
 	Alternatives         []AlternativeStrategy `json:"alternatives,omitempty"`
+	DiskSpaceAnalysis    *DiskSpaceAnalysis    `json:"disk_space_analysis,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
