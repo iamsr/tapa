@@ -59,6 +59,7 @@ type Operation struct {
 	TimeBreakdown        *TimeBreakdown        `json:"time_breakdown,omitempty"`
 	Alternatives         []AlternativeStrategy `json:"alternatives,omitempty"`
 	DiskSpaceAnalysis    *DiskSpaceAnalysis    `json:"disk_space_analysis,omitempty"`
+	RollbackAnalysis     *RollbackAnalysis     `json:"rollback_analysis,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
