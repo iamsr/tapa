@@ -45,6 +45,13 @@ func FormatTable(w io.Writer, result *models.AnalysisResult) error {
 			}
 			opCard := ui.FormatOperationCard(op, j+1)
 			fmt.Fprint(w, opCard)
+
+			// Format advanced features if present
+			if hasAdvancedFeatures(op) {
+				if err := FormatAdvancedFeatures(w, op); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -142,6 +149,10 @@ func formatBatchingYAML(w io.Writer, result *models.BatchResult) error {
 }
 
 // Helper functions
+
+func hasAdvancedFeatures(op *models.Operation) bool {
+	return op.DiskSpaceAnalysis != nil || op.RollbackAnalysis != nil || op.DataMigrationAnalysis != nil
+}
 
 func padRight(s string, length int) string {
 	if len(s) >= length {
