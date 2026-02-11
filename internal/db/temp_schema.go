@@ -4,8 +4,27 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
+	"regexp"
+	"strings"
 	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+// validateIdentifier ensures identifier is safe for SQL interpolation
+func validateIdentifier(name string) error {
+	if name == "" {
+		return fmt.Errorf("identifier cannot be empty")
+	}
+	// Allow alphanumeric and underscore, must start with letter or underscore
+	if !regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name) {
+		return fmt.Errorf("invalid identifier: %s (must contain only letters, numbers, and underscores)", name)
+	}
+	return nil
+}
 
 // TempSchemaCreator creates temporary isolated schemas for dry-run testing
 type TempSchemaCreator struct {
@@ -21,9 +40,15 @@ func NewTempSchemaCreator(databaseType string) *TempSchemaCreator {
 
 // CreateSchema creates a temporary schema and returns its name and cleanup function
 func (c *TempSchemaCreator) CreateSchema(ctx context.Context, db *sql.DB) (string, func(context.Context) error, error) {
-	// Generate unique schema name with timestamp
+	// Generate unique schema name with timestamp and random component
 	timestamp := time.Now().Unix()
-	schemaName := fmt.Sprintf("tapa_temp_%d", timestamp)
+	random := rand.Intn(100000) // 5-digit random number
+	schemaName := fmt.Sprintf("tapa_temp_%d_%05d", timestamp, random)
+
+	// Validate schema name
+	if err := validateIdentifier(schemaName); err != nil {
+		return "", nil, fmt.Errorf("invalid schema name: %w", err)
+	}
 
 	switch c.databaseType {
 	case "postgresql":
@@ -83,6 +108,14 @@ func (c *TempSchemaCreator) CloneSchema(ctx context.Context, db *sql.DB, sourceS
 		return nil // Mock mode
 	}
 
+	// Validate schema names
+	if err := validateIdentifier(sourceSchema); err != nil {
+		return fmt.Errorf("invalid source schema: %w", err)
+	}
+	if err := validateIdentifier(tempSchema); err != nil {
+		return fmt.Errorf("invalid temp schema: %w", err)
+	}
+
 	switch c.databaseType {
 	case "postgresql":
 		return c.clonePostgreSQLSchema(ctx, db, sourceSchema, tempSchema, includeTables)
@@ -117,8 +150,18 @@ func (c *TempSchemaCreator) clonePostgreSQLSchema(ctx context.Context, db *sql.D
 		tables = append(tables, tableName)
 	}
 
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating tables: %w", err)
+	}
+
 	// Clone each table structure (without data)
 	for _, table := range tables {
+		// Validate table name
+		if err := validateIdentifier(table); err != nil {
+			return fmt.Errorf("invalid table name %s: %w", table, err)
+		}
+
 		// Skip if table not in include list (if specified)
 		if len(includeTables) > 0 && !contains(includeTables, table) {
 			continue
@@ -162,25 +205,36 @@ func (c *TempSchemaCreator) cloneMySQLSchema(ctx context.Context, db *sql.DB, so
 		tables = append(tables, tableName)
 	}
 
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating tables: %w", err)
+	}
+
 	// Clone each table
 	for _, table := range tables {
+		// Validate table name
+		if err := validateIdentifier(table); err != nil {
+			return fmt.Errorf("invalid table name %s: %w", table, err)
+		}
+
 		if len(includeTables) > 0 && !contains(includeTables, table) {
 			continue
 		}
 
 		// Get CREATE TABLE statement
-		var createTableSQL string
-		err := db.QueryRowContext(ctx, fmt.Sprintf("SHOW CREATE TABLE %s.%s", sourceSchema, table)).Scan(&table, &createTableSQL)
+		var tableName, createTableSQL string
+		err := db.QueryRowContext(ctx, fmt.Sprintf("SHOW CREATE TABLE %s.%s", sourceSchema, table)).Scan(&tableName, &createTableSQL)
 		if err != nil {
 			return fmt.Errorf("failed to get CREATE TABLE for %s: %w", table, err)
 		}
 
-		// Switch to temp database and create table
-		if _, err := db.ExecContext(ctx, fmt.Sprintf("USE %s", tempSchema)); err != nil {
-			return err
-		}
+		// Modify CREATE TABLE to use qualified table name instead of USE
+		// Change: CREATE TABLE `tablename` to CREATE TABLE `tempSchema`.`tablename`
+		createSQL := strings.Replace(createTableSQL,
+			"CREATE TABLE `"+table+"`",
+			"CREATE TABLE `"+tempSchema+"`.`"+table+"`", 1)
 
-		if _, err := db.ExecContext(ctx, createTableSQL); err != nil {
+		if _, err := db.ExecContext(ctx, createSQL); err != nil {
 			return fmt.Errorf("failed to create table %s: %w", table, err)
 		}
 	}
