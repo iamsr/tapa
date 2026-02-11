@@ -27,7 +27,21 @@ const (
 	ErrorTypeUnknown             ErrorType = "UNKNOWN"
 )
 
-// DryRunResult represents the result of executing a migration in dry-run mode
+// ErrorSeverity represents the severity level of an execution error
+type ErrorSeverity string
+
+const (
+	SeverityError ErrorSeverity = "ERROR"
+	SeverityFatal ErrorSeverity = "FATAL"
+)
+
+// DryRunResult represents the result of executing a migration in dry-run mode.
+//
+// Invariants that must be maintained by callers:
+//   - ErrorCount should match len(Errors)
+//   - WarningCount should match len(Warnings)
+//   - Status should be FAILED if ErrorCount > 0
+//   - Status should be SUCCESS only if ErrorCount == 0
 type DryRunResult struct {
 	Status          DryRunStatus       `json:"status"`
 	ExecutionTimeMS int64              `json:"execution_time_ms"`
@@ -41,13 +55,13 @@ type DryRunResult struct {
 
 // ExecutionError represents a runtime error during migration execution
 type ExecutionError struct {
-	ErrorType  ErrorType `json:"error_type"`
-	Message    string    `json:"message"`
-	SQL        string    `json:"sql,omitempty"`
-	LineNumber int       `json:"line_number,omitempty"`
-	Details    string    `json:"details,omitempty"`
-	Severity   string    `json:"severity"`            // "ERROR", "FATAL"
-	SQLState   string    `json:"sql_state,omitempty"` // PostgreSQL error code
+	ErrorType  ErrorType     `json:"error_type"`
+	Message    string        `json:"message"`
+	SQL        string        `json:"sql,omitempty"`
+	LineNumber int           `json:"line_number,omitempty"`
+	Details    string        `json:"details,omitempty"`
+	Severity   ErrorSeverity `json:"severity"`            // "ERROR", "FATAL"
+	SQLState   string        `json:"sql_state,omitempty"` // PostgreSQL error code
 }
 
 // ExecutionWarning represents non-fatal issues detected during execution
