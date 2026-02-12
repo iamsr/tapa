@@ -69,3 +69,46 @@ func TestLockImpact_String(t *testing.T) {
 		t.Error("String() should not be empty")
 	}
 }
+
+func TestLockImpact_BlocksAllWrites(t *testing.T) {
+	tests := []struct {
+		name     string
+		lockType models.LockType
+		want     bool
+	}{
+		{"ACCESS_EXCLUSIVE blocks writes", models.LockTypeAccessExclusive, true},
+		{"EXCLUSIVE blocks writes", models.LockTypeExclusive, true},
+		{"SHARE does not block all writes", models.LockTypeShare, false},
+		{"ROW_EXCLUSIVE does not block all writes", models.LockTypeRowExclusive, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			impact := &models.LockImpact{LockType: tt.lockType}
+			if got := impact.BlocksAllWrites(); got != tt.want {
+				t.Errorf("BlocksAllWrites() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLockImpact_BlocksAllReads(t *testing.T) {
+	tests := []struct {
+		name     string
+		lockType models.LockType
+		want     bool
+	}{
+		{"ACCESS_EXCLUSIVE blocks reads", models.LockTypeAccessExclusive, true},
+		{"EXCLUSIVE does not block reads", models.LockTypeExclusive, false},
+		{"SHARE does not block reads", models.LockTypeShare, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			impact := &models.LockImpact{LockType: tt.lockType}
+			if got := impact.BlocksAllReads(); got != tt.want {
+				t.Errorf("BlocksAllReads() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
