@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/iamsr/tapa/internal/analyzer"
+	"github.com/iamsr/tapa/internal/analyzer/concurrency"
 	"github.com/iamsr/tapa/internal/analyzer/dryrun"
 	mysqlanalyzer "github.com/iamsr/tapa/internal/analyzer/mysql"
 	postgresanalyzer "github.com/iamsr/tapa/internal/analyzer/postgres"
@@ -29,7 +30,8 @@ type analyzeOptions struct {
 	dryRun          bool
 	dryRunDB        string // Database URL for dry-run execution testing
 	failOnRiskLevel string
-	comprehensive   bool // Enable all Phase 2 + advanced features (disk space, rollback, data migration)
+	comprehensive   bool // Enable all Phase 2 + advanced features (disk space, rollback, data migration, concurrency)
+	concurrency     bool // Enable concurrency impact analysis
 	verbose         bool // Enable verbose output with progress indicators
 }
 
@@ -57,7 +59,8 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection, or with temporary schema execution testing if --db is provided")
 	cmd.Flags().StringVar(&opts.dryRunDB, "dry-run-db", "", "database URL for dry-run execution testing (defaults to --db)")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
-	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, data migration, dependencies, time breakdown, alternatives)")
+	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, data migration, dependencies, time breakdown, alternatives, concurrency)")
+	cmd.Flags().BoolVar(&opts.concurrency, "concurrency", false, "analyze concurrency impact of migration (included automatically in --comprehensive)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose output with progress indicators")
 
 	return cmd
@@ -147,6 +150,25 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		}
 	}
 
+	// Setup concurrency analyzer if enabled and DB URL available
+	var concurrencyAnalyzer *concurrency.Analyzer
+	enableConcurrency := opts.concurrency || opts.comprehensive
+	if enableConcurrency && cfg.Database.URL != "" {
+		// Connect to database for concurrency analysis
+		concurrencyConn, err := sql.Open(cfg.Database.Type, cfg.Database.URL)
+		if err != nil {
+			// Non-fatal: continue without concurrency analysis
+			fmt.Fprintf(os.Stderr, "Warning: Failed to connect for concurrency analysis: %v\n", err)
+		} else {
+			defer concurrencyConn.Close()
+			concurrencyAnalyzer = concurrency.NewAnalyzer(cfg.Database.Type, concurrencyConn)
+
+			if opts.verbose {
+				fmt.Fprintln(os.Stderr, "✓ Concurrency impact analysis enabled")
+			}
+		}
+	}
+
 	// Get parser
 	sqlParser, err := parser.GetParser(cfg.Database.Type)
 	if err != nil {
@@ -181,6 +203,10 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 	switch cfg.Database.Type {
 	case "postgresql":
 		pgAnalyzer = postgresanalyzer.NewAnalyzer(intr, cfg.Analysis.DiskThroughputMBps, cfg.Analysis.RewriteFactor, opts.comprehensive)
+		// Pass concurrency analyzer to PostgreSQL analyzer
+		if concurrencyAnalyzer != nil {
+			pgAnalyzer.SetConcurrencyAnalyzer(concurrencyAnalyzer)
+		}
 		anlzr = pgAnalyzer
 	case "mysql":
 		// MySQL analyzer doesn't support comprehensive mode yet

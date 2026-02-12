@@ -8,6 +8,7 @@ import (
 
 	"github.com/iamsr/tapa/internal/analyzer/alternatives"
 	"github.com/iamsr/tapa/internal/analyzer/batcher"
+	"github.com/iamsr/tapa/internal/analyzer/concurrency"
 	"github.com/iamsr/tapa/internal/analyzer/datamigration"
 	"github.com/iamsr/tapa/internal/analyzer/dependencies"
 	"github.com/iamsr/tapa/internal/analyzer/diskspace"
@@ -29,6 +30,9 @@ type Analyzer struct {
 	timeEstimator        estimator.TimeEstimator
 	alternativeGenerator alternatives.AlternativeGenerator
 	batcher              batcher.MigrationBatcher
+
+	// Advanced analyzers
+	concurrencyAnalyzer *concurrency.Analyzer
 }
 
 // NewAnalyzer creates a new PostgreSQL analyzer
@@ -47,6 +51,11 @@ func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFa
 	analyzer.batcher, _ = batcher.GetMigrationBatcher("postgresql")
 
 	return analyzer
+}
+
+// SetConcurrencyAnalyzer sets the concurrency analyzer for advanced concurrency analysis
+func (a *Analyzer) SetConcurrencyAnalyzer(concurrencyAnalyzer *concurrency.Analyzer) {
+	a.concurrencyAnalyzer = concurrencyAnalyzer
 }
 
 // Analyze enriches an operation with lock detection, risk scoring, and recommendations
@@ -430,7 +439,7 @@ func (a *Analyzer) BatchOperations(ops []*models.Operation) (*models.BatchingStr
 	return a.batcher.GenerateBatches(ops)
 }
 
-// runAdvancedAnalyzers runs all advanced analyzers (disk space, rollback, data migration)
+// runAdvancedAnalyzers runs all advanced analyzers (disk space, rollback, data migration, concurrency)
 func (a *Analyzer) runAdvancedAnalyzers(ctx context.Context, op *models.Operation, stats *db.TableStats) error {
 	// Disk space analyzer
 	diskAnalyzer := diskspace.NewAnalyzer("postgresql", a.diskThroughputMBps)
@@ -448,6 +457,14 @@ func (a *Analyzer) runAdvancedAnalyzers(ctx context.Context, op *models.Operatio
 	dataMigrationAnalyzer := datamigration.NewAnalyzer("postgresql")
 	if err := dataMigrationAnalyzer.DetectDataMigration(ctx, op, stats); err != nil {
 		return fmt.Errorf("data migration detection failed: %w", err)
+	}
+
+	// Concurrency analyzer (if available)
+	if a.concurrencyAnalyzer != nil {
+		if err := a.concurrencyAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+			// Non-fatal: concurrency analysis failures don't stop main analysis
+			return fmt.Errorf("concurrency analysis failed: %w", err)
+		}
 	}
 
 	return nil

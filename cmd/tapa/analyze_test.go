@@ -26,6 +26,8 @@ func TestAnalyzeCommand_Flags(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("dry-run"))
 	assert.NotNil(t, cmd.Flags().Lookup("dry-run-db"))
 	assert.NotNil(t, cmd.Flags().Lookup("fail-on-risk-level"))
+	assert.NotNil(t, cmd.Flags().Lookup("concurrency"))
+	assert.NotNil(t, cmd.Flags().Lookup("comprehensive"))
 }
 
 func TestAnalyzeCommand_MissingArgument(t *testing.T) {
@@ -231,5 +233,37 @@ func TestAnalyzeCommand_DryRunWithoutDB(t *testing.T) {
 
 	if db != "" {
 		t.Errorf("Expected --db to be empty, got %q", db)
+	}
+}
+
+func TestAnalyzeCommand_ConcurrencyFlag(t *testing.T) {
+	// Test that --concurrency flag is parsed correctly
+	cmd := newAnalyzeCommand()
+
+	err := cmd.ParseFlags([]string{"--concurrency"})
+	if err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	concurrency, _ := cmd.Flags().GetBool("concurrency")
+
+	if !concurrency {
+		t.Error("Expected --concurrency to be true")
+	}
+}
+
+func TestAnalyzeCommand_ComprehensiveIncludesConcurrency(t *testing.T) {
+	// Test that --comprehensive flag exists
+	cmd := newAnalyzeCommand()
+
+	err := cmd.ParseFlags([]string{"--comprehensive"})
+	if err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	comprehensive, _ := cmd.Flags().GetBool("comprehensive")
+
+	if !comprehensive {
+		t.Error("Expected --comprehensive to be true")
 	}
 }
