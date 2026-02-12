@@ -27,6 +27,12 @@ func FormatAdvancedFeatures(w io.Writer, op *models.Operation) error {
 		}
 	}
 
+	if op.ConcurrencyAnalysis != nil {
+		if err := FormatConcurrencyAnalysis(w, op.ConcurrencyAnalysis); err != nil {
+			return err
+		}
+	}
+
 	if op.DryRunResult != nil {
 		if err := FormatDryRunResult(w, op.DryRunResult); err != nil {
 			return err
