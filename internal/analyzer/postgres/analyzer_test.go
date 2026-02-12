@@ -314,3 +314,105 @@ func TestAnalyzer_RiskScoreCalculation(t *testing.T) {
 		})
 	}
 }
+
+// mockConcurrencyAnalyzer for testing concurrency analyzer integration
+type mockConcurrencyAnalyzer struct {
+	analyzeCallCount int
+}
+
+func (m *mockConcurrencyAnalyzer) AnalyzeOperation(ctx context.Context, op *models.Operation) error {
+	m.analyzeCallCount++
+	// Simulate concurrency analysis by adding a mock analysis result
+	op.ConcurrencyAnalysis = &models.ConcurrencyAnalysis{
+		ConcurrencySafe: true,
+		ImpactScore:     25,
+	}
+	return nil
+}
+
+func TestAnalyzer_ConcurrencyAnalyzer_IndependentFlag(t *testing.T) {
+	// Test that concurrency analyzer runs when set, even without comprehensive mode
+	introspector := &mockIntrospector{
+		stats: &db.TableStats{
+			TableName:      "users",
+			RowCount:       1000,
+			TableSizeBytes: 1024 * 1024 * 100, // 100 MB
+		},
+	}
+
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false) // comprehensive=false
+	mockConcurrency := &mockConcurrencyAnalyzer{}
+
+	// Inject concurrency analyzer
+	analyzer.SetConcurrencyAnalyzer(mockConcurrency)
+
+	op := &models.Operation{
+		SQL:       "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+		Type:      models.OperationTypeAddColumn,
+		TableName: "users",
+	}
+
+	err := analyzer.Analyze(context.Background(), op)
+	require.NoError(t, err)
+
+	// Verify concurrency analyzer was called
+	assert.Equal(t, 1, mockConcurrency.analyzeCallCount, "Concurrency analyzer should be called once")
+	assert.NotNil(t, op.ConcurrencyAnalysis, "Concurrency analysis should be attached to operation")
+	assert.Equal(t, 25, op.ConcurrencyAnalysis.ImpactScore)
+}
+
+func TestAnalyzer_ConcurrencyAnalyzer_ComprehensiveMode(t *testing.T) {
+	// Test that concurrency analyzer runs in comprehensive mode
+	introspector := &mockIntrospector{
+		stats: &db.TableStats{
+			TableName:      "users",
+			RowCount:       1000,
+			TableSizeBytes: 1024 * 1024 * 100, // 100 MB
+		},
+	}
+
+	analyzer := NewAnalyzer(introspector, 200, 2.0, true) // comprehensive=true
+	mockConcurrency := &mockConcurrencyAnalyzer{}
+
+	// Inject concurrency analyzer
+	analyzer.SetConcurrencyAnalyzer(mockConcurrency)
+
+	op := &models.Operation{
+		SQL:       "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+		Type:      models.OperationTypeAddColumn,
+		TableName: "users",
+	}
+
+	err := analyzer.Analyze(context.Background(), op)
+	require.NoError(t, err)
+
+	// Verify concurrency analyzer was called
+	assert.Equal(t, 1, mockConcurrency.analyzeCallCount, "Concurrency analyzer should be called once in comprehensive mode")
+	assert.NotNil(t, op.ConcurrencyAnalysis, "Concurrency analysis should be attached to operation")
+}
+
+func TestAnalyzer_ConcurrencyAnalyzer_NotSet(t *testing.T) {
+	// Test that analysis works when concurrency analyzer is not set
+	introspector := &mockIntrospector{
+		stats: &db.TableStats{
+			TableName:      "users",
+			RowCount:       1000,
+			TableSizeBytes: 1024 * 1024 * 100, // 100 MB
+		},
+	}
+
+	analyzer := NewAnalyzer(introspector, 200, 2.0, false)
+	// Don't set concurrency analyzer
+
+	op := &models.Operation{
+		SQL:       "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+		Type:      models.OperationTypeAddColumn,
+		TableName: "users",
+	}
+
+	err := analyzer.Analyze(context.Background(), op)
+	require.NoError(t, err)
+
+	// Verify no concurrency analysis
+	assert.Nil(t, op.ConcurrencyAnalysis, "Concurrency analysis should not be set when analyzer not available")
+}

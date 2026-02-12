@@ -8,7 +8,6 @@ import (
 
 	"github.com/iamsr/tapa/internal/analyzer/alternatives"
 	"github.com/iamsr/tapa/internal/analyzer/batcher"
-	"github.com/iamsr/tapa/internal/analyzer/concurrency"
 	"github.com/iamsr/tapa/internal/analyzer/datamigration"
 	"github.com/iamsr/tapa/internal/analyzer/dependencies"
 	"github.com/iamsr/tapa/internal/analyzer/diskspace"
@@ -17,6 +16,11 @@ import (
 	"github.com/iamsr/tapa/internal/db"
 	"github.com/iamsr/tapa/pkg/models"
 )
+
+// ConcurrencyAnalyzer interface for dependency injection and testing
+type ConcurrencyAnalyzer interface {
+	AnalyzeOperation(ctx context.Context, op *models.Operation) error
+}
 
 // Analyzer analyzes PostgreSQL operations for production impact
 type Analyzer struct {
@@ -32,7 +36,7 @@ type Analyzer struct {
 	batcher              batcher.MigrationBatcher
 
 	// Advanced analyzers
-	concurrencyAnalyzer *concurrency.Analyzer
+	concurrencyAnalyzer ConcurrencyAnalyzer
 }
 
 // NewAnalyzer creates a new PostgreSQL analyzer
@@ -54,7 +58,7 @@ func NewAnalyzer(introspector db.Introspector, diskThroughputMBps int, rewriteFa
 }
 
 // SetConcurrencyAnalyzer sets the concurrency analyzer for advanced concurrency analysis
-func (a *Analyzer) SetConcurrencyAnalyzer(concurrencyAnalyzer *concurrency.Analyzer) {
+func (a *Analyzer) SetConcurrencyAnalyzer(concurrencyAnalyzer ConcurrencyAnalyzer) {
 	a.concurrencyAnalyzer = concurrencyAnalyzer
 }
 
@@ -108,6 +112,14 @@ func (a *Analyzer) Analyze(ctx context.Context, op *models.Operation) error {
 		if err := a.runAdvancedAnalyzers(ctx, op, stats); err != nil {
 			// Non-fatal: advanced analysis failures don't stop main analysis
 			// In production, this would use proper logging
+		}
+	}
+
+	// Step 9: Run concurrency analyzer if available (independent of comprehensive mode)
+	// This allows --concurrency flag to work on its own
+	if !a.comprehensive && a.concurrencyAnalyzer != nil {
+		if err := a.concurrencyAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+			// Non-fatal: concurrency analysis failures don't stop main analysis
 		}
 	}
 
