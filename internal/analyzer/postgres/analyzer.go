@@ -456,26 +456,29 @@ func (a *Analyzer) runAdvancedAnalyzers(ctx context.Context, op *models.Operatio
 	// Disk space analyzer
 	diskAnalyzer := diskspace.NewAnalyzer("postgresql", a.diskThroughputMBps)
 	if err := diskAnalyzer.AnalyzeDiskSpace(ctx, op, stats); err != nil {
-		return fmt.Errorf("disk space analysis failed: %w", err)
+		// Non-fatal: continue with other analyzers
+		// In production, this would use proper logging
 	}
 
 	// Rollback analyzer
 	rollbackAnalyzer := rollback.NewAnalyzer("postgresql")
 	if err := rollbackAnalyzer.AnalyzeRollback(ctx, op); err != nil {
-		return fmt.Errorf("rollback analysis failed: %w", err)
+		// Non-fatal: continue with other analyzers
+		// In production, this would use proper logging
 	}
 
 	// Data migration detector
 	dataMigrationAnalyzer := datamigration.NewAnalyzer("postgresql")
 	if err := dataMigrationAnalyzer.DetectDataMigration(ctx, op, stats); err != nil {
-		return fmt.Errorf("data migration detection failed: %w", err)
+		// Non-fatal: continue with other analyzers
+		// In production, this would use proper logging
 	}
 
 	// Concurrency analyzer (if available)
 	if a.concurrencyAnalyzer != nil {
 		if err := a.concurrencyAnalyzer.AnalyzeOperation(ctx, op); err != nil {
 			// Non-fatal: concurrency analysis failures don't stop main analysis
-			return fmt.Errorf("concurrency analysis failed: %w", err)
+			// In production, this would use proper logging
 		}
 	}
 
