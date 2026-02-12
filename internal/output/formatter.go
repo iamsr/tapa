@@ -151,7 +151,7 @@ func formatBatchingYAML(w io.Writer, result *models.BatchResult) error {
 // Helper functions
 
 func hasAdvancedFeatures(op *models.Operation) bool {
-	return op.DiskSpaceAnalysis != nil || op.RollbackAnalysis != nil || op.DataMigrationAnalysis != nil
+	return op.DiskSpaceAnalysis != nil || op.RollbackAnalysis != nil || op.DataMigrationAnalysis != nil || op.DryRunResult != nil
 }
 
 func padRight(s string, length int) string {
