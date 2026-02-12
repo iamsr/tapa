@@ -4,6 +4,23 @@ import (
 	"github.com/iamsr/tapa/pkg/models"
 )
 
+const (
+	// Row count thresholds for duration estimation
+	rowCountThresholdTiny   = 10000
+	rowCountThresholdSmall  = 100000
+	rowCountThresholdMedium = 1000000
+	rowCountThresholdLarge  = 10000000
+
+	// Minimum lock duration in milliseconds
+	minLockDurationMS = 100
+
+	// Query per second estimates for blocked query calculation
+	baseQPSHigh    = 100.0 // High-traffic tables
+	baseQPSMedium  = 20.0  // Medium-traffic tables
+	baseQPSLow     = 5.0   // Low-traffic tables
+	baseQPSMinimal = 1.0   // Minimal traffic
+)
+
 // LockCalculator calculates lock impact for database operations
 type LockCalculator struct {
 	databaseType string
@@ -54,13 +71,13 @@ func (lc *LockCalculator) EstimateLockDuration(op *models.Operation) int64 {
 
 	// Start with row count based estimation
 	switch {
-	case op.RowCount > 10000000: // > 10M rows
+	case op.RowCount > rowCountThresholdLarge: // > 10M rows
 		baseMS = 60000 // 60 seconds
-	case op.RowCount > 1000000: // > 1M rows
+	case op.RowCount > rowCountThresholdMedium: // > 1M rows
 		baseMS = 30000 // 30 seconds
-	case op.RowCount > 100000: // > 100K rows
+	case op.RowCount > rowCountThresholdSmall: // > 100K rows
 		baseMS = 10000 // 10 seconds
-	case op.RowCount > 10000: // > 10K rows
+	case op.RowCount > rowCountThresholdTiny: // > 10K rows
 		baseMS = 5000 // 5 seconds
 	default:
 		baseMS = 1000 // 1 second
@@ -82,8 +99,8 @@ func (lc *LockCalculator) EstimateLockDuration(op *models.Operation) int64 {
 	}
 
 	// Minimum lock duration
-	if baseMS < 100 {
-		baseMS = 100
+	if baseMS < minLockDurationMS {
+		baseMS = minLockDurationMS
 	}
 
 	return baseMS
@@ -144,13 +161,13 @@ func (lc *LockCalculator) estimateBlockedQueries(op *models.Operation, impact *m
 	var baseQPS float64
 	if impact.BlocksReads {
 		// If blocking reads, much higher query rate assumed
-		baseQPS = 100.0
+		baseQPS = baseQPSHigh
 	} else if impact.BlocksWrites {
 		// If only blocking writes, moderate query rate
-		baseQPS = 20.0
+		baseQPS = baseQPSMedium
 	} else {
 		// Minimal blocking
-		baseQPS = 5.0
+		baseQPS = baseQPSLow
 	}
 
 	// Calculate estimated blocked queries
