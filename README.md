@@ -38,11 +38,12 @@ A static analysis tool that predicts the production impact of database migration
 Enable comprehensive analysis with the `--comprehensive` flag for production-ready insights:
 
 ```bash
-# Full comprehensive analysis
+# Full comprehensive analysis (all features)
 tapa analyze migrations/ --db $DATABASE_URL --comprehensive
 
-# Dry-run simulation only
+# Individual features
 tapa analyze migrations/ --db $DATABASE_URL --dry-run
+tapa analyze migrations/ --db $DATABASE_URL --concurrency
 ```
 
 Features include:
@@ -51,6 +52,7 @@ Features include:
 - **Rollback Analysis**: Determine reversibility and get auto-generated rollback scripts
 - **Data Migration Detection**: Find hidden UPDATE/INSERT/DELETE operations with time estimates
 - **Dry-Run Simulation**: Execute migrations in temporary schemas to catch runtime errors
+- **Concurrency Impact Analysis**: Predict lock behavior and get safer alternatives
 
 See [Advanced Features Guide](docs/advanced-features.md) for details.
 
