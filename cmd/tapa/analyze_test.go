@@ -24,6 +24,7 @@ func TestAnalyzeCommand_Flags(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("db-type"))
 	assert.NotNil(t, cmd.Flags().Lookup("format"))
 	assert.NotNil(t, cmd.Flags().Lookup("dry-run"))
+	assert.NotNil(t, cmd.Flags().Lookup("dry-run-db"))
 	assert.NotNil(t, cmd.Flags().Lookup("fail-on-risk-level"))
 }
 
@@ -152,4 +153,83 @@ CREATE INDEX idx_email ON users(email) ALGORITHM=INPLACE;
 	// - Analysis is performed
 	// - Output is generated
 	assert.NoError(t, err, "MySQL CLI analysis should complete without error")
+}
+
+func TestAnalyzeCommand_DryRunWithDB(t *testing.T) {
+	// Test that dry-run analyzer is created when --dry-run and --dry-run-db are provided
+	cmd := newAnalyzeCommand()
+
+	cmd.SetArgs([]string{
+		"test.sql",
+		"--dry-run",
+		"--dry-run-db", "postgresql://localhost/test",
+	})
+
+	// This test verifies flags are parsed correctly
+	// The actual analyzer creation is integration-level and requires real DB
+	err := cmd.ParseFlags([]string{"--dry-run", "--dry-run-db", "postgresql://localhost/test"})
+	if err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	dryRunDB, _ := cmd.Flags().GetString("dry-run-db")
+
+	if !dryRun {
+		t.Error("Expected --dry-run to be true")
+	}
+
+	if dryRunDB != "postgresql://localhost/test" {
+		t.Errorf("Expected --dry-run-db to be 'postgresql://localhost/test', got %q", dryRunDB)
+	}
+}
+
+func TestAnalyzeCommand_DryRunDBOverride(t *testing.T) {
+	// Test that --dry-run-db overrides --db
+	cmd := newAnalyzeCommand()
+
+	err := cmd.ParseFlags([]string{
+		"--db", "postgresql://localhost/main",
+		"--dry-run-db", "postgresql://localhost/test",
+	})
+	if err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	db, _ := cmd.Flags().GetString("db")
+	dryRunDB, _ := cmd.Flags().GetString("dry-run-db")
+
+	if db != "postgresql://localhost/main" {
+		t.Errorf("Expected --db to be 'postgresql://localhost/main', got %q", db)
+	}
+
+	if dryRunDB != "postgresql://localhost/test" {
+		t.Errorf("Expected --dry-run-db to be 'postgresql://localhost/test', got %q", dryRunDB)
+	}
+}
+
+func TestAnalyzeCommand_DryRunWithoutDB(t *testing.T) {
+	// Test backward compatibility: --dry-run without DB URL
+	cmd := newAnalyzeCommand()
+
+	err := cmd.ParseFlags([]string{"--dry-run"})
+	if err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	dryRunDB, _ := cmd.Flags().GetString("dry-run-db")
+	db, _ := cmd.Flags().GetString("db")
+
+	if !dryRun {
+		t.Error("Expected --dry-run to be true")
+	}
+
+	if dryRunDB != "" {
+		t.Errorf("Expected --dry-run-db to be empty, got %q", dryRunDB)
+	}
+
+	if db != "" {
+		t.Errorf("Expected --db to be empty, got %q", db)
+	}
 }

@@ -57,7 +57,7 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection, or with temporary schema execution testing if --db is provided")
 	cmd.Flags().StringVar(&opts.dryRunDB, "dry-run-db", "", "database URL for dry-run execution testing (defaults to --db)")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
-	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, rollback, data migration, dependencies, time breakdown, alternatives)")
+	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, data migration, dependencies, time breakdown, alternatives)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose output with progress indicators")
 
 	return cmd
@@ -135,7 +135,7 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		if dryRunDBURL != "" {
 			dryRunConn, err := sql.Open(cfg.Database.Type, dryRunDBURL)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to connect for dry-run testing: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to connect for dry-run testing (check --dry-run-db URL): %v\n", err)
 			} else {
 				defer dryRunConn.Close()
 				dryRunAnalyzer = dryrun.NewAnalyzer(cfg.Database.Type, dryRunConn)
