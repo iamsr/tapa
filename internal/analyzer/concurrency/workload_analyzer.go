@@ -8,6 +8,14 @@ import (
 	"github.com/iamsr/tapa/pkg/models"
 )
 
+const (
+	// Peak load threshold for active connections
+	peakLoadConnectionThreshold = 50
+
+	// Long-running query threshold in seconds
+	longRunningQueryThresholdSeconds = 5
+)
+
 // WorkloadAnalyzer analyzes database workload patterns
 type WorkloadAnalyzer struct {
 	databaseType string
@@ -66,13 +74,13 @@ func (w *WorkloadAnalyzer) analyzePostgreSQLWorkload(ctx context.Context, tableN
 
 	// Query 2: Long-running queries (>5 seconds)
 	var longRunning int
-	err = w.db.QueryRowContext(ctx, `
+	err = w.db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM pg_stat_activity 
 		WHERE state = 'active' 
 		  AND pid != pg_backend_pid()
-		  AND now() - query_start > interval '5 seconds'
-	`).Scan(&longRunning)
+		  AND now() - query_start > interval '%d seconds'
+	`, longRunningQueryThresholdSeconds)).Scan(&longRunning)
 	if err != nil {
 		// Use default value on error
 		longRunning = 0
@@ -101,7 +109,7 @@ func (w *WorkloadAnalyzer) analyzePostgreSQLWorkload(ctx context.Context, tableN
 	workload.TableAccessFrequency = w.ClassifyAccessFrequency(queriesPerMin)
 
 	// Determine if we're in peak load period (>50 active connections)
-	workload.PeakLoadPeriod = activeConns > 50
+	workload.PeakLoadPeriod = activeConns > peakLoadConnectionThreshold
 
 	return workload, nil
 }
@@ -132,13 +140,13 @@ func (w *WorkloadAnalyzer) analyzeMySQLWorkload(ctx context.Context, tableName s
 
 	// Query 2: Long-running queries (>5 seconds)
 	var longRunning int
-	err = w.db.QueryRowContext(ctx, `
+	err = w.db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM information_schema.processlist 
 		WHERE command != 'Sleep' 
 		  AND id != CONNECTION_ID()
-		  AND time > 5
-	`).Scan(&longRunning)
+		  AND time > %d
+	`, longRunningQueryThresholdSeconds)).Scan(&longRunning)
 	if err != nil {
 		// Use default value on error
 		longRunning = 0
@@ -150,7 +158,7 @@ func (w *WorkloadAnalyzer) analyzeMySQLWorkload(ctx context.Context, tableName s
 	workload.TableAccessFrequency = w.ClassifyAccessFrequency(queriesPerMin)
 
 	// Determine if we're in peak load period (>50 active connections)
-	workload.PeakLoadPeriod = activeConns > 50
+	workload.PeakLoadPeriod = activeConns > peakLoadConnectionThreshold
 
 	return workload, nil
 }
@@ -159,11 +167,24 @@ func (w *WorkloadAnalyzer) analyzeMySQLWorkload(ctx context.Context, tableName s
 func (w *WorkloadAnalyzer) mockWorkload() *models.WorkloadAnalysis {
 	return &models.WorkloadAnalysis{
 		ActiveConnections:    10,
-		QueriesPerSecond:     15.0,
+		QueriesPerSecond:     5.0,
 		TableAccessFrequency: "medium",
 		PeakLoadPeriod:       false,
-		TopQueryTypes:        []models.QueryTypeMetrics{},
-		LongRunningQueries:   0,
+		TopQueryTypes: []models.QueryTypeMetrics{
+			{
+				QueryType:     "SELECT",
+				CountPerMin:   100,
+				AvgDurationMS: 50.0,
+				WillBeBlocked: false,
+			},
+			{
+				QueryType:     "UPDATE",
+				CountPerMin:   30,
+				AvgDurationMS: 100.0,
+				WillBeBlocked: true,
+			},
+		},
+		LongRunningQueries: 2,
 	}
 }
 
@@ -181,46 +202,51 @@ func (w *WorkloadAnalyzer) ClassifyAccessFrequency(queriesPerMin int) string {
 	}
 }
 
-// EstimateBlockedQueries estimates the number of queries that will be blocked
+// EstimateBlockedQueries estimates how many queries will be blocked during migration
 func (w *WorkloadAnalyzer) EstimateBlockedQueries(workload *models.WorkloadAnalysis, lockDurationMS int64, blockedTypes []string) int {
 	if workload == nil {
 		return 0
 	}
 
-	// Calculate expected queries during lock period
-	lockDurationSec := float64(lockDurationMS) / 1000.0
-	expectedQueries := workload.QueriesPerSecond * lockDurationSec
+	// If workload has TopQueryTypes data, use it for precise calculation
+	if len(workload.TopQueryTypes) > 0 {
+		lockDurationMinutes := float64(lockDurationMS) / 60000.0
+		totalBlocked := 0
 
-	// Apply multiplier based on access frequency
-	var frequencyMultiplier float64
+		for _, queryType := range workload.TopQueryTypes {
+			for _, blockedType := range blockedTypes {
+				if queryType.QueryType == blockedType {
+					blocked := int(float64(queryType.CountPerMin) * lockDurationMinutes)
+					totalBlocked += blocked
+				}
+			}
+		}
+
+		return totalBlocked
+	}
+
+	// Fallback: use generic QPS-based estimation
+	lockDurationSeconds := float64(lockDurationMS) / 1000.0
+	queriesPerMinute := workload.QueriesPerSecond * 60
+
+	// Estimate based on access frequency
+	var estimatedQueriesAffected float64
 	switch workload.TableAccessFrequency {
 	case "very_high":
-		frequencyMultiplier = 1.5
+		estimatedQueriesAffected = queriesPerMinute * 0.8 // 80% of queries
 	case "high":
-		frequencyMultiplier = 1.2
+		estimatedQueriesAffected = queriesPerMinute * 0.5 // 50%
 	case "medium":
-		frequencyMultiplier = 1.0
-	case "low":
-		frequencyMultiplier = 0.5
-	default:
-		frequencyMultiplier = 1.0
+		estimatedQueriesAffected = queriesPerMinute * 0.3 // 30%
+	default: // "low"
+		estimatedQueriesAffected = queriesPerMinute * 0.1 // 10%
 	}
 
 	// Apply peak load multiplier
 	if workload.PeakLoadPeriod {
-		frequencyMultiplier *= 1.3
+		estimatedQueriesAffected *= 1.5
 	}
 
-	// Estimate blocked queries based on blocked types
-	// Assume blocked types represent % of total queries
-	blockedPercentage := float64(len(blockedTypes)) / 4.0 // 4 main query types (SELECT, INSERT, UPDATE, DELETE)
-
-	estimatedBlocked := int(expectedQueries * frequencyMultiplier * blockedPercentage)
-
-	// Ensure at least 1 if there are any queries and lock duration > 0
-	if estimatedBlocked == 0 && lockDurationMS > 0 && workload.QueriesPerSecond > 0 {
-		estimatedBlocked = 1
-	}
-
-	return estimatedBlocked
+	totalBlocked := int(estimatedQueriesAffected * (lockDurationSeconds / 60.0))
+	return totalBlocked
 }
