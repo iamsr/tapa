@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/iamsr/tapa/internal/analyzer"
+	"github.com/iamsr/tapa/internal/analyzer/dryrun"
 	mysqlanalyzer "github.com/iamsr/tapa/internal/analyzer/mysql"
 	postgresanalyzer "github.com/iamsr/tapa/internal/analyzer/postgres"
 	"github.com/iamsr/tapa/internal/config"
@@ -25,6 +27,7 @@ type analyzeOptions struct {
 	dbType          string
 	format          string
 	dryRun          bool
+	dryRunDB        string // Database URL for dry-run execution testing
 	failOnRiskLevel string
 	comprehensive   bool // Enable all Phase 2 + advanced features (disk space, rollback, data migration)
 	verbose         bool // Enable verbose output with progress indicators
@@ -51,9 +54,10 @@ func newAnalyzeCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.dbURL, "db", "", "database connection URL")
 	cmd.Flags().StringVar(&opts.dbType, "db-type", "", "database type (postgresql, mysql) - auto-detected from URL if not specified")
 	cmd.Flags().StringVar(&opts.format, "format", "table", "output format (table, json, yaml)")
-	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection")
+	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "analyze without database connection, or with temporary schema execution testing if --db is provided")
+	cmd.Flags().StringVar(&opts.dryRunDB, "dry-run-db", "", "database URL for dry-run execution testing (defaults to --db)")
 	cmd.Flags().StringVar(&opts.failOnRiskLevel, "fail-on-risk-level", "", "exit with error if risk level exceeds threshold (low, medium, high, critical)")
-	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, data migration, dependencies, time breakdown, alternatives)")
+	cmd.Flags().BoolVar(&opts.comprehensive, "comprehensive", false, "enable comprehensive analysis (disk space, rollback, rollback, data migration, dependencies, time breakdown, alternatives)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose output with progress indicators")
 
 	return cmd
@@ -116,6 +120,31 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 		}
 	} else if opts.dryRun {
 		stepDone(os.Stderr, "Dry-run mode (no database connection)")
+	}
+
+	// Setup dry-run analyzer if requested and DB URL available
+	var dryRunAnalyzer *dryrun.Analyzer
+	if opts.dryRun {
+		// Determine which DB URL to use
+		dryRunDBURL := cfg.Database.URL
+		if opts.dryRunDB != "" {
+			dryRunDBURL = opts.dryRunDB
+		}
+
+		// Only create analyzer if we have a DB URL
+		if dryRunDBURL != "" {
+			dryRunConn, err := sql.Open(cfg.Database.Type, dryRunDBURL)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to connect for dry-run testing: %v\n", err)
+			} else {
+				defer dryRunConn.Close()
+				dryRunAnalyzer = dryrun.NewAnalyzer(cfg.Database.Type, dryRunConn)
+
+				if opts.verbose {
+					fmt.Fprintln(os.Stderr, "✓ Dry-run execution testing enabled")
+				}
+			}
+		}
 	}
 
 	// Get parser
@@ -192,6 +221,18 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 						if err := pgAnalyzer.AnalyzeWithEnhancements(ctx, op, analysisOpts); err != nil {
 							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 						}
+
+						// Execute dry-run if analyzer is available
+						if dryRunAnalyzer != nil {
+							if opts.verbose {
+								fmt.Fprintf(os.Stderr, "  Running execution test for %s...\n", op.Type)
+							}
+
+							if err := dryRunAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+								// Non-fatal: continue with analysis
+								fmt.Fprintf(os.Stderr, "Warning: Dry-run execution test failed for %s: %v\n", op.Type, err)
+							}
+						}
 					}
 				} else if mysqlAnalyzer != nil {
 					analysisOpts := mysqlanalyzer.DefaultAnalysisOptions()
@@ -199,11 +240,35 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 						if err := mysqlAnalyzer.AnalyzeWithEnhancements(ctx, op, analysisOpts); err != nil {
 							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
 						}
+
+						// Execute dry-run if analyzer is available
+						if dryRunAnalyzer != nil {
+							if opts.verbose {
+								fmt.Fprintf(os.Stderr, "  Running execution test for %s...\n", op.Type)
+							}
+
+							if err := dryRunAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+								// Non-fatal: continue with analysis
+								fmt.Fprintf(os.Stderr, "Warning: Dry-run execution test failed for %s: %v\n", op.Type, err)
+							}
+						}
 					}
 				} else {
 					for _, op := range migration.Operations {
 						if err := anlzr.Analyze(ctx, op); err != nil {
 							fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
+						}
+
+						// Execute dry-run if analyzer is available
+						if dryRunAnalyzer != nil {
+							if opts.verbose {
+								fmt.Fprintf(os.Stderr, "  Running execution test for %s...\n", op.Type)
+							}
+
+							if err := dryRunAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+								// Non-fatal: continue with analysis
+								fmt.Fprintf(os.Stderr, "Warning: Dry-run execution test failed for %s: %v\n", op.Type, err)
+							}
 						}
 					}
 				}
@@ -211,6 +276,18 @@ func runAnalyze(filePath string, opts *analyzeOptions) error {
 				for _, op := range migration.Operations {
 					if err := anlzr.Analyze(ctx, op); err != nil {
 						fmt.Fprintf(os.Stderr, "Warning: failed to analyze operation: %v\n", err)
+					}
+
+					// Execute dry-run if analyzer is available
+					if dryRunAnalyzer != nil {
+						if opts.verbose {
+							fmt.Fprintf(os.Stderr, "  Running execution test for %s...\n", op.Type)
+						}
+
+						if err := dryRunAnalyzer.AnalyzeOperation(ctx, op); err != nil {
+							// Non-fatal: continue with analysis
+							fmt.Fprintf(os.Stderr, "Warning: Dry-run execution test failed for %s: %v\n", op.Type, err)
+						}
 					}
 				}
 			}
