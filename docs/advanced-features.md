@@ -9,7 +9,7 @@ TAPA includes five advanced features for comprehensive migration analysis. These
 | **Disk Space Requirements** | Calculates disk space needed before, during, and after migration | Space analysis with warnings |
 | **Rollback Analysis** | Determines reversibility and generates rollback strategies | Rollback category and recovery steps |
 | **Data Migration Detection** | Detects UPDATE/INSERT/DELETE operations in migrations | Performance estimates and batching advice |
-| **Dry-Run Simulation** | (Coming soon) Executes migrations in temporary database | Runtime error detection |
+| **Dry-Run Simulation** | Executes migrations in temporary isolated schemas | Runtime error detection before production |
 | **Concurrency Impact** | (Coming soon) Predicts impact on concurrent queries | Lock analysis and optimal execution window |
 
 ## Usage
@@ -224,16 +224,70 @@ Total overhead: ~25ms per operation
 
 5. **VACUUM after data migrations** - reclaim space from dead tuples (PostgreSQL)
 
+## Dry-Run Simulation
+
+Execute migrations in temporary isolated schemas to detect runtime errors before production deployment.
+
+**Example Usage:**
+
+```bash
+tapa analyze migrations/ --db $DATABASE_URL --dry-run
+```
+
+**What it detects:**
+
+- **Constraint Violations**: Foreign key, unique, check constraints
+- **Syntax Errors**: Invalid SQL that parser missed
+- **Type Conversion Failures**: Data type incompatibilities
+- **Permission Issues**: Missing privileges
+- **Resource Exhaustion**: Insufficient temp space
+
+**Example Output:**
+
+```
+Dry-Run Execution:
+─────────────────────────────────────
+Status: FAILED
+Execution time: 245 ms
+Errors: 2
+Warnings: 0
+Temp schema: tapa_temp_1707734400
+Rolled back: true
+
+Errors:
+
+  1. [CONSTRAINT_VIOLATION] foreign key constraint "fk_user" violation
+     SQL: ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id)...
+     Details: Key (user_id)=(999) is not present in table "users"
+
+  2. [SYNTAX_ERROR] syntax error at or near "WHERE"
+     SQL: SELECT FROM WHERE
+     
+✗ Migration would fail with 2 errors
+```
+
+**How it works:**
+
+1. Creates temporary schema with unique name
+2. Clones table structures (without data)
+3. Executes migration SQL in transaction
+4. Captures all errors with detailed context
+5. Rolls back transaction (no permanent changes)
+6. Drops temporary schema
+
+**Limitations:**
+
+- Only detects schema-level issues (not data-dependent)
+- May not catch production-specific problems (load, concurrency)
+- Requires database connection with CREATE SCHEMA privileges
+- Performance estimates may differ from production
+
+**Database-specific behavior:**
+
+- **PostgreSQL**: Uses schemas, requires CREATE privilege
+- **MySQL**: Uses databases, requires CREATE DATABASE privilege
+
 ## Coming Soon
-
-### Dry-Run Simulation
-
-Execute migrations against temporary database copies to catch runtime errors:
-
-- Constraint violations
-- Permission issues
-- Type conversion failures
-- Resource exhaustion
 
 ### Concurrency Impact Analysis
 
