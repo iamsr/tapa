@@ -9,6 +9,10 @@ import (
 
 // FormatConcurrencyAnalysis formats concurrency impact analysis results
 func FormatConcurrencyAnalysis(w io.Writer, analysis *models.ConcurrencyAnalysis) error {
+	if analysis == nil {
+		return nil
+	}
+
 	fmt.Fprintln(w, "\nConcurrency Impact:")
 	fmt.Fprintln(w, "─────────────────────────────────────")
 
@@ -80,6 +84,11 @@ func FormatConcurrencyAnalysis(w io.Writer, analysis *models.ConcurrencyAnalysis
 		if analysis.WorkloadAnalysis.PeakLoadPeriod {
 			fmt.Fprintf(w, "  %sPeak load period detected!%s\n", colorRed, colorReset)
 		}
+
+		if analysis.WorkloadAnalysis.LongRunningQueries > 0 {
+			fmt.Fprintf(w, "  Long-running queries: %s%d%s (may delay lock)\n",
+				colorYellow, analysis.WorkloadAnalysis.LongRunningQueries, colorReset)
+		}
 	}
 
 	// Estimated Downtime
@@ -103,6 +112,10 @@ func FormatConcurrencyAnalysis(w io.Writer, analysis *models.ConcurrencyAnalysis
 			altLockColor := LockTypeColor(alt.LockType)
 			fmt.Fprintf(w, "     Lock: %s%s%s\n", altLockColor, alt.LockType, colorReset)
 			fmt.Fprintf(w, "     Impact reduction: %d%%\n", alt.ImpactReduction)
+
+			if alt.RequiresFeature != "" {
+				fmt.Fprintf(w, "     Requires: %s\n", alt.RequiresFeature)
+			}
 
 			if len(alt.Steps) > 0 {
 				fmt.Fprintf(w, "     Steps:\n")
