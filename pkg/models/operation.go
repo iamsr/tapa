@@ -62,6 +62,7 @@ type Operation struct {
 	RollbackAnalysis      *RollbackAnalysis      `json:"rollback_analysis,omitempty"`
 	DataMigrationAnalysis *DataMigrationAnalysis `json:"data_migration_analysis,omitempty"`
 	DryRunResult          *DryRunResult          `json:"dry_run_result,omitempty"`
+	ConcurrencyAnalysis   *ConcurrencyAnalysis   `json:"concurrency_analysis,omitempty"`
 }
 
 // IsHighRisk returns true if risk score >= 51
